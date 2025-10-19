@@ -128,8 +128,13 @@
   - Настроить TypeScript path aliases для удобного импорта
   - _Requirements: 7.2_
 
-- [ ] 9. Реализация React UI components
-- [ ] 9.1 Создать OverlayWindow component
+- [x] 9. Реализация React UI components
+
+
+
+- [x] 9.1 Создать OverlayWindow component
+
+
 
   - Реализовать React component с props: message, visible, autoHideDuration
   - Добавить useEffect hook для auto-hide через 10 секунд
@@ -137,7 +142,9 @@
   - Добавить поддержку UTF-8 для русского текста
   - _Requirements: 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 9.2 Создать Settings component
+- [x] 9.2 Создать Settings component
+
+
 
   - Реализовать форму для ввода API ключа
   - Добавить dropdown для выбора audio device
@@ -145,7 +152,9 @@
   - Реализовать onSave callback для сохранения конфигурации
   - _Requirements: 8.1, 8.3_
 
-- [ ] 9.3 Создать StatusIndicator component
+- [x] 9.3 Создать StatusIndicator component
+
+
 
   - Отображать текущий статус: capturing, processing, idle, error
   - Показывать индикатор подключения к VB-Cable
