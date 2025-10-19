@@ -3,7 +3,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["bun-types"]
+    "types": ["bun-types"],
+    "lib": ["ES2020"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"],

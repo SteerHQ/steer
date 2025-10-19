@@ -50,7 +50,9 @@
   - Добавить валидацию формата API ключа
   - _Requirements: 8.1, 8.2, 8.5_
 
-- [ ] 5. Настройка HonoJS backend API
+- [-] 5. Настройка HonoJS backend API
+
+
 
   - Создать HonoJS приложение в apps/api
   - Настроить базовые routes: /api/audio/process, /api/transcribe, /api/generate
