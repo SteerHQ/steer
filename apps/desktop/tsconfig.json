@@ -8,5 +8,10 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src-tauri"]
+  "exclude": ["node_modules", "dist", "src-tauri"],
+  "references": [
+    {
+      "path": "../../packages/types"
+    }
+  ]
 }

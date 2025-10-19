@@ -10,6 +10,11 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": {
+      "@steer/types": ["./packages/types/src/index.ts"],
+      "@steer/types/*": ["./packages/types/src/*"]
+    }
   }
 }

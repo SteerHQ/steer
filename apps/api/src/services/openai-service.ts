@@ -1,12 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
+import type { WhisperResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
-
-interface TranscriptionResult {
-  text: string;
-  language: string;
-  duration: number;
-}
 
 export class OpenAIService {
   private readonly openai: ReturnType<typeof createOpenAI>;
@@ -28,7 +23,7 @@ export class OpenAIService {
    * Transcribe audio using OpenAI Whisper API
    * Requirements: 2.1, 2.2, 2.3, 2.5
    */
-  async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResult> {
+  async transcribeAudio(audioBlob: Blob): Promise<WhisperResponse> {
     return this.withRetry(async () => {
       const formData = new FormData();
       formData.append("file", audioBlob, "audio.wav");

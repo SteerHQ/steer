@@ -116,7 +116,10 @@
   - Добавить валидацию API key в headers
   - _Requirements: 2.3, 3.3_
 
-- [-] 8. Создание shared types package
+- [x] 8. Создание shared types package
+
+
+
 
 
 
