@@ -53,7 +53,7 @@ function handleOpenAIError(error: OpenAIError, c: Context) {
     retryable,
   };
 
-  return c.json(response, error.status);
+  return c.json(response, error.status as any);
 }
 
 function handleAudioError(error: AudioError, c: Context) {

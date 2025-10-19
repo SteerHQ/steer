@@ -50,8 +50,7 @@
   - Добавить валидацию формата API ключа
   - _Requirements: 8.1, 8.2, 8.5_
 
-- [-] 5. Настройка HonoJS backend API
-
+- [x] 5. Настройка HonoJS backend API
 
 
   - Создать HonoJS приложение в apps/api
@@ -60,7 +59,9 @@
   - Настроить CORS для локального взаимодействия с Tauri
   - _Requirements: 7.3_
 
-- [ ] 6. Реализация Audio Processing Service
+- [-] 6. Реализация Audio Processing Service
+
+
 - [ ] 6.1 Создать AudioProcessor класс
 
   - Реализовать метод processAudioBuffer() для обработки Uint8Array
