@@ -1,0 +1,19 @@
+{
+  "name": "@steer/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "start": "bun run dist/index.js"
+  },
+  "dependencies": {
+    "@steer/types": "workspace:*",
+    "hono": "^4.10.1"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.3"
+  }
+}

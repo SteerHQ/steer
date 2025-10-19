@@ -1,0 +1,57 @@
+{
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "beforeBuildCommand": "bun run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist",
+    "withGlobalTauri": false
+  },
+  "package": {
+    "productName": "VoiceAssistant",
+    "version": "1.0.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "shell": {
+        "all": false,
+        "open": true
+      }
+    },
+    "bundle": {
+      "active": true,
+      "targets": ["msi"],
+      "identifier": "com.voiceassistant.app",
+      "icon": [
+        "icons/32x32.png",
+        "icons/128x128.png",
+        "icons/128x128@2x.png",
+        "icons/icon.icns",
+        "icons/icon.ico"
+      ],
+      "windows": {
+        "wix": {
+          "language": "ru-RU"
+        }
+      }
+    },
+    "security": {
+      "csp": null
+    },
+    "windows": [
+      {
+        "label": "main",
+        "title": "Voice Assistant Overlay",
+        "width": 400,
+        "height": 200,
+        "resizable": false,
+        "fullscreen": false,
+        "alwaysOnTop": true,
+        "decorations": false,
+        "transparent": true,
+        "skipTaskbar": true,
+        "visible": true
+      }
+    ]
+  }
+}
