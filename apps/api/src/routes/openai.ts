@@ -1,21 +1,87 @@
 import { Hono } from 'hono';
+import { OpenAIService } from '../services/openai-service';
+import { ValidationError } from '../middleware/error-handler';
 
 const openai = new Hono();
 
 // POST /api/transcribe
-// This endpoint will be implemented in task 7.4
+// Transcribe audio using OpenAI Whisper API
+// Requirements: 2.3
 openai.post('/transcribe', async (c) => {
-  return c.json({ 
-    message: 'Transcription endpoint - to be implemented in task 7.4' 
-  }, 501);
+  try {
+    // Validate API key in headers
+    const apiKey = c.req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!apiKey) {
+      throw new ValidationError('Missing API key in Authorization header');
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    
+    if (!body.audio) {
+      throw new ValidationError('Missing required field: audio');
+    }
+
+    // Convert audio array back to Blob
+    const audioArray = new Uint8Array(body.audio);
+    const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+
+    // Create OpenAI service instance
+    const openaiService = new OpenAIService(apiKey);
+
+    // Transcribe audio
+    const result = await openaiService.transcribeAudio(audioBlob);
+
+    return c.json({
+      success: true,
+      transcription: result,
+    });
+
+  } catch (error) {
+    // Let error handler middleware handle the error
+    throw error;
+  }
 });
 
 // POST /api/generate
-// This endpoint will be implemented in task 7.4
+// Generate response using OpenAI GPT-4o API
+// Requirements: 3.3
 openai.post('/generate', async (c) => {
-  return c.json({ 
-    message: 'Generation endpoint - to be implemented in task 7.4' 
-  }, 501);
+  try {
+    // Validate API key in headers
+    const apiKey = c.req.header('Authorization')?.replace('Bearer ', '');
+    
+    if (!apiKey) {
+      throw new ValidationError('Missing API key in Authorization header');
+    }
+
+    // Validate request body
+    const body = await c.req.json();
+    
+    if (!body.transcript) {
+      throw new ValidationError('Missing required field: transcript');
+    }
+
+    if (typeof body.transcript !== 'string' || body.transcript.trim() === '') {
+      throw new ValidationError('Transcript must be a non-empty string');
+    }
+
+    // Create OpenAI service instance
+    const openaiService = new OpenAIService(apiKey);
+
+    // Generate response
+    const response = await openaiService.generateResponse(body.transcript);
+
+    return c.json({
+      success: true,
+      response,
+    });
+
+  } catch (error) {
+    // Let error handler middleware handle the error
+    throw error;
+  }
 });
 
 export default openai;

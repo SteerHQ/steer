@@ -52,39 +52,45 @@
 
 - [x] 5. Настройка HonoJS backend API
 
-
   - Создать HonoJS приложение в apps/api
   - Настроить базовые routes: /api/audio/process, /api/transcribe, /api/generate
   - Создать middleware для error handling
   - Настроить CORS для локального взаимодействия с Tauri
   - _Requirements: 7.3_
 
-- [-] 6. Реализация Audio Processing Service
+- [x] 6. Реализация Audio Processing Service
 
 
-- [ ] 6.1 Создать AudioProcessor класс
+- [x] 6.1 Создать AudioProcessor класс
 
   - Реализовать метод processAudioBuffer() для обработки Uint8Array
   - Реализовать метод convertToWav() для конвертации PCM в WAV формат
   - Добавить валидацию минимальной длительности аудио (2 секунды)
   - _Requirements: 2.1_
 
-- [ ] 6.2 Создать API endpoint для обработки аудио
+- [x] 6.2 Создать API endpoint для обработки аудио
 
   - Реализовать POST /api/audio/process endpoint
   - Добавить валидацию входных данных
   - Вернуть обработанный audio blob
   - _Requirements: 2.1_
 
-- [ ] 7. Реализация OpenAI Integration Service
-- [ ] 7.1 Создать OpenAIService класс
+- [x] 7. Реализация OpenAI Integration Service
+
+
+
+
+- [x] 7.1 Создать OpenAIService класс
+
+
 
   - Реализовать конструктор с API key параметром
   - Настроить HTTP client для OpenAI API с timeout (30s для Whisper, 15s для GPT)
   - Добавить retry logic с exponential backoff (максимум 2 попытки)
   - _Requirements: 2.4, 3.4_
 
-- [ ] 7.2 Реализовать метод transcribeAudio()
+- [x] 7.2 Реализовать метод transcribeAudio()
+
 
   - Создать FormData с audio blob для Whisper API
   - Настроить параметры: model=whisper-1, language=ru
@@ -92,7 +98,8 @@
   - Добавить error handling для API ошибок
   - _Requirements: 2.1, 2.2, 2.3, 2.5_
 
-- [ ] 7.3 Реализовать метод generateResponse()
+- [x] 7.3 Реализовать метод generateResponse()
+
 
   - Создать запрос к GPT-4o API с system prompt "Отвечай коротко, по-русски, давай технический ответ"
   - Настроить параметры: model=gpt-4o, max_tokens=150, temperature=0.7
@@ -100,14 +107,18 @@
   - Добавить error handling
   - _Requirements: 3.1, 3.2, 3.5_
 
-- [ ] 7.4 Создать API endpoints для OpenAI интеграции
+- [x] 7.4 Создать API endpoints для OpenAI интеграции
+
+
 
   - Реализовать POST /api/transcribe endpoint
   - Реализовать POST /api/generate endpoint
   - Добавить валидацию API key в headers
   - _Requirements: 2.3, 3.3_
 
-- [ ] 8. Создание shared types package
+- [-] 8. Создание shared types package
+
+
 
   - Создать TypeScript interfaces в packages/types: AudioBuffer, AudioMetadata, WhisperResponse, GPTResponse, ErrorResponse, AppState, AppConfig
   - Экспортировать все types из index.ts

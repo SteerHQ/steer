@@ -9,7 +9,9 @@
     "start": "bun run dist/index.js"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.52",
     "@steer/types": "workspace:*",
+    "ai": "^5.0.76",
     "hono": "^4.10.1"
   },
   "devDependencies": {
