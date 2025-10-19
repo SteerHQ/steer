@@ -12,9 +12,10 @@
   },
   "dependencies": {
     "@steer/types": "workspace:*",
+    "@tauri-apps/api": "^2.8.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "@tauri-apps/api": "^2.8.0"
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.8.4",

@@ -60,7 +60,6 @@
 
 - [x] 6. Реализация Audio Processing Service
 
-
 - [x] 6.1 Создать AudioProcessor класс
 
   - Реализовать метод processAudioBuffer() для обработки Uint8Array
@@ -77,12 +76,7 @@
 
 - [x] 7. Реализация OpenAI Integration Service
 
-
-
-
 - [x] 7.1 Создать OpenAIService класс
-
-
 
   - Реализовать конструктор с API key параметром
   - Настроить HTTP client для OpenAI API с timeout (30s для Whisper, 15s для GPT)
@@ -90,7 +84,6 @@
   - _Requirements: 2.4, 3.4_
 
 - [x] 7.2 Реализовать метод transcribeAudio()
-
 
   - Создать FormData с audio blob для Whisper API
   - Настроить параметры: model=whisper-1, language=ru
@@ -100,7 +93,6 @@
 
 - [x] 7.3 Реализовать метод generateResponse()
 
-
   - Создать запрос к GPT-4o API с system prompt "Отвечай коротко, по-русски, давай технический ответ"
   - Настроить параметры: model=gpt-4o, max_tokens=150, temperature=0.7
   - Обработать ответ и вернуть текст
@@ -109,19 +101,12 @@
 
 - [x] 7.4 Создать API endpoints для OpenAI интеграции
 
-
-
   - Реализовать POST /api/transcribe endpoint
   - Реализовать POST /api/generate endpoint
   - Добавить валидацию API key в headers
   - _Requirements: 2.3, 3.3_
 
 - [x] 8. Создание shared types package
-
-
-
-
-
 
   - Создать TypeScript interfaces в packages/types: AudioBuffer, AudioMetadata, WhisperResponse, GPTResponse, ErrorResponse, AppState, AppConfig
   - Экспортировать все types из index.ts
@@ -130,11 +115,7 @@
 
 - [x] 9. Реализация React UI components
 
-
-
 - [x] 9.1 Создать OverlayWindow component
-
-
 
   - Реализовать React component с props: message, visible, autoHideDuration
   - Добавить useEffect hook для auto-hide через 10 секунд
@@ -144,8 +125,6 @@
 
 - [x] 9.2 Создать Settings component
 
-
-
   - Реализовать форму для ввода API ключа
   - Добавить dropdown для выбора audio device
   - Добавить настройки overlay position и auto-hide duration
@@ -154,16 +133,12 @@
 
 - [x] 9.3 Создать StatusIndicator component
 
-
-
   - Отображать текущий статус: capturing, processing, idle, error
   - Показывать индикатор подключения к VB-Cable
   - Показывать индикатор настройки API key
   - _Requirements: 1.4, 8.4_
 
-- [-] 10. Реализация application state management
-
-
+- [x] 10. Реализация application state management
 
   - Создать AppState interface и initial state
   - Настроить React Context или Zustand для state management
@@ -187,6 +162,7 @@
   - При получении транскрипции отправить в /api/generate
   - Отобразить ответ в OverlayWindow
   - Очистить audio buffer после обработки
+
   - _Requirements: 1.5, 2.1, 2.3, 3.1, 3.3, 4.3_
 
 - [ ] 11.3 Добавить error handling в UI
