@@ -161,7 +161,9 @@
   - Показывать индикатор настройки API key
   - _Requirements: 1.4, 8.4_
 
-- [ ] 10. Реализация application state management
+- [-] 10. Реализация application state management
+
+
 
   - Создать AppState interface и initial state
   - Настроить React Context или Zustand для state management
