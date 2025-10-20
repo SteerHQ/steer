@@ -189,7 +189,7 @@
   - Проверить финальный размер MSI ≤ 20MB
   - _Requirements: 6.1_
 
-- [ ] 14. Реализация logging системы
+- [x] 14. Реализация logging системы
 
   - Создать logger module в Rust для записи в %APPDATA%/VoiceAssistant/logs/
   - Настроить log rotation (максимум 5 файлов по 10MB)

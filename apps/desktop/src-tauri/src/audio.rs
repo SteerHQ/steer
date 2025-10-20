@@ -42,7 +42,11 @@ impl AudioCapture {
         // Find the device by name
         let device = host
             .input_devices()
-            .map_err(|e| AudioError::DeviceNotFound(format!("Failed to enumerate devices: {}", e)))?
+            .map_err(|e| {
+                let err = AudioError::DeviceNotFound(format!("Failed to enumerate devices: {}", e));
+                tracing::error!("{}", err);
+                err
+            })?
             .find(|d| {
                 if let Ok(name) = d.name() {
                     name.contains(device_name)
@@ -51,16 +55,22 @@ impl AudioCapture {
                 }
             })
             .ok_or_else(|| {
-                AudioError::DeviceNotFound(format!(
+                let err = AudioError::DeviceNotFound(format!(
                     "Device '{}' not found. Please ensure VB-Cable is installed and configured.",
                     device_name
-                ))
+                ));
+                tracing::error!("{}", err);
+                err
             })?;
 
         // Get default config and verify it supports our requirements
         let config = device
             .default_input_config()
-            .map_err(|e| AudioError::ConfigError(format!("Failed to get default config: {}", e)))?;
+            .map_err(|e| {
+                let err = AudioError::ConfigError(format!("Failed to get default config: {}", e));
+                tracing::error!("{}", err);
+                err
+            })?;
 
         let sample_rate = config.sample_rate().0;
 
@@ -111,7 +121,7 @@ impl AudioCapture {
                     }
                 },
                 move |err| {
-                    eprintln!("Audio stream error: {}", err);
+                    tracing::error!("Audio stream error: {}", err);
                     // Clear buffer on error
                     if let Ok(mut buf) = err_buffer.lock() {
                         buf.clear();
@@ -119,12 +129,20 @@ impl AudioCapture {
                 },
                 None,
             )
-            .map_err(|e| AudioError::StreamError(format!("Failed to build stream: {}", e)))?;
+            .map_err(|e| {
+                let err = AudioError::StreamError(format!("Failed to build stream: {}", e));
+                tracing::error!("{}", err);
+                err
+            })?;
 
         // Start the stream
         stream
             .play()
-            .map_err(|e| AudioError::StreamError(format!("Failed to start stream: {}", e)))?;
+            .map_err(|e| {
+                let err = AudioError::StreamError(format!("Failed to start stream: {}", e));
+                tracing::error!("{}", err);
+                err
+            })?;
 
         self.stream = Some(stream);
         Ok(())

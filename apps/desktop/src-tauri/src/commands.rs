@@ -33,13 +33,17 @@ pub async fn start_audio_capture(state: State<'_, AudioState>) -> Result<String,
                 *capture_guard = Some(capture);
             }
             Err(AudioError::DeviceNotFound(msg)) => {
-                return Err(format!(
+                let err_msg = format!(
                     "VB-Cable device not found. Please ensure VB-Cable is installed and configured. Details: {}",
                     msg
-                ));
+                );
+                tracing::error!("{}", err_msg);
+                return Err(err_msg);
             }
             Err(e) => {
-                return Err(format!("Failed to initialize audio capture: {}", e));
+                let err_msg = format!("Failed to initialize audio capture: {}", e);
+                tracing::error!("{}", err_msg);
+                return Err(err_msg);
             }
         }
     }
@@ -47,12 +51,16 @@ pub async fn start_audio_capture(state: State<'_, AudioState>) -> Result<String,
     // Start capture
     if let Some(ref mut capture) = *capture_guard {
         capture.start_capture().map_err(|e| {
-            format!("Failed to start audio capture: {}", e)
+            let err_msg = format!("Failed to start audio capture: {}", e);
+            tracing::error!("{}", err_msg);
+            err_msg
         })?;
         
         Ok("Audio capture started successfully".to_string())
     } else {
-        Err("Failed to initialize audio capture".to_string())
+        let err_msg = "Failed to initialize audio capture".to_string();
+        tracing::error!("{}", err_msg);
+        Err(err_msg)
     }
 }
 
@@ -75,7 +83,9 @@ pub async fn get_audio_data(state: State<'_, AudioState>) -> Result<Vec<u8>, Str
         
         Ok(buffer)
     } else {
-        Err("Audio capture not initialized. Please start capture first.".to_string())
+        let err_msg = "Audio capture not initialized. Please start capture first.".to_string();
+        tracing::warn!("{}", err_msg);
+        Err(err_msg)
     }
 }
 
@@ -92,12 +102,16 @@ pub async fn stop_audio_capture(state: State<'_, AudioState>) -> Result<String, 
     
     if let Some(ref mut capture) = *capture_guard {
         capture.stop_capture().map_err(|e| {
-            format!("Failed to stop audio capture: {}", e)
+            let err_msg = format!("Failed to stop audio capture: {}", e);
+            tracing::error!("{}", err_msg);
+            err_msg
         })?;
         
         Ok("Audio capture stopped successfully".to_string())
     } else {
-        Err("Audio capture not initialized".to_string())
+        let err_msg = "Audio capture not initialized".to_string();
+        tracing::warn!("{}", err_msg);
+        Err(err_msg)
     }
 }
 

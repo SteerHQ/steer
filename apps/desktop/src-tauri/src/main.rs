@@ -3,10 +3,18 @@
 
 mod audio;
 mod commands;
+mod logger;
 
 use commands::AudioState;
 
 fn main() {
+    // Initialize logging system
+    if let Err(e) = logger::init_logger() {
+        eprintln!("Failed to initialize logger: {}", e);
+    }
+    
+    tracing::info!("VoiceAssistant starting...");
+    
     tauri::Builder::default()
         .manage(AudioState::new())
         .invoke_handler(tauri::generate_handler![
