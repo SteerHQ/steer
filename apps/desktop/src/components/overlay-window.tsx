@@ -6,13 +6,15 @@ interface OverlayWindowProps {
   visible: boolean;
   autoHideDuration?: number;
   onHide?: () => void;
+  isError?: boolean;
 }
 
 export const OverlayWindow: React.FC<OverlayWindowProps> = ({
   message,
   visible,
   autoHideDuration = 10000,
-  onHide
+  onHide,
+  isError = false
 }) => {
   useEffect(() => {
     if (visible && autoHideDuration > 0) {
@@ -31,8 +33,9 @@ export const OverlayWindow: React.FC<OverlayWindowProps> = ({
   }
 
   return (
-    <div className="overlay-window">
+    <div className={`overlay-window ${isError ? 'overlay-error' : ''}`}>
       <div className="overlay-content">
+        {isError && <span className="overlay-icon">⚠️</span>}
         {message}
       </div>
     </div>

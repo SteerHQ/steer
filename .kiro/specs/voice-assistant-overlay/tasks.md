@@ -146,8 +146,10 @@
   - Добавить error state management
   - _Requirements: 1.1, 2.3, 3.3, 4.4_
 
-- [ ] 11. Интеграция всех компонентов в main application flow
-- [ ] 11.1 Создать главный App component
+- [x] 11. Интеграция всех компонентов в main application flow
+
+
+- [x] 11.1 Создать главный App component
 
   - Инициализировать state management
   - Проверить наличие API key при запуске
@@ -155,7 +157,7 @@
   - Запустить audio capture если всё настроено
   - _Requirements: 8.1_
 
-- [ ] 11.2 Реализовать audio processing pipeline
+- [x] 11.2 Реализовать audio processing pipeline
 
   - При получении audio data из Tauri вызвать /api/audio/process
   - Отправить обработанное аудио в /api/transcribe
@@ -165,7 +167,7 @@
 
   - _Requirements: 1.5, 2.1, 2.3, 3.1, 3.3, 4.3_
 
-- [ ] 11.3 Добавить error handling в UI
+- [x] 11.3 Добавить error handling в UI
 
   - Отображать ошибки VB-Cable connection в StatusIndicator
   - Показывать API errors в OverlayWindow

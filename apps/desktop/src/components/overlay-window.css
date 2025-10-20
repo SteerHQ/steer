@@ -14,10 +14,23 @@
   animation: slideIn 0.3s ease-out;
 }
 
+.overlay-window.overlay-error {
+  background: rgba(220, 38, 38, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
 .overlay-content {
   line-height: 1.5;
   word-wrap: break-word;
   white-space: pre-wrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.overlay-icon {
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 @keyframes slideIn {
