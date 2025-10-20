@@ -175,14 +175,13 @@
 
 - [x] 12. Настройка MSI installer
 
-
   - Настроить tauri.conf.json для MSI bundler
   - Создать WiX template для русской локализации
   - Настроить installer для установки в Program Files
   - Добавить создание ярлыка в меню Пуск
   - _Requirements: 6.4, 6.5_
 
-- [ ] 13. Оптимизация размера приложения
+- [x] 13. Оптимизация размера приложения
 
   - Настроить Rust build с strip=true, lto=true, opt-level="z"
   - Включить Vite tree-shaking и code splitting

@@ -44,7 +44,12 @@
           "skipWebviewInstall": false,
           "license": "wix/license.rtf",
           "enableElevatedUpdateRuntime": false
-        }
+        },
+        "webviewInstallMode": {
+          "type": "embedBootstrapper"
+        },
+        "allowDowngrades": false,
+        "nsis": null
       },
       "shortDescription": "Голосовой помощник для Windows",
       "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI Whisper и предоставления кратких технических ответов через overlay-интерфейс.",
@@ -62,7 +67,8 @@
         "signingIdentity": null,
         "providerShortName": null,
         "entitlements": null
-      }
+      },
+      "resources": []
     },
     "security": {
       "csp": null
