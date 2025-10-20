@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Id="*"
+    Name="VoiceAssistant"
+    Language="1049"
+    Version="$(var.Version)"
+    Manufacturer="VoiceAssistant"
+    UpgradeCode="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D">
+    
+    <Package
+      InstallerVersion="450"
+      Compressed="yes"
+      InstallScope="perMachine"
+      Description="Голосовой помощник для Windows"
+      Comments="VoiceAssistant - утилита для захвата аудио и распознавания речи"
+      Manufacturer="VoiceAssistant" />
+
+    <MajorUpgrade
+      DowngradeErrorMessage="Более новая версия VoiceAssistant уже установлена. Установка прервана."
+      AllowSameVersionUpgrades="yes" />
+
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature
+      Id="ProductFeature"
+      Title="VoiceAssistant"
+      Description="Основные компоненты приложения"
+      Level="1"
+      ConfigurableDirectory="INSTALLDIR">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <Icon Id="ProductIcon" SourceFile="icons/icon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="ProductIcon" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/voiceassistant" />
+    
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+      
+      <Publish Dialog="ExitDialog"
+        Control="Finish"
+        Event="DoAction"
+        Value="LaunchApplication">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+    </UI>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
+    <Property Id="WixShellExecTarget" Value="[#VoiceAssistant.exe]" />
+    <CustomAction Id="LaunchApplication"
+      BinaryKey="WixCA"
+      DllEntry="WixShellExec"
+      Impersonate="yes" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf" />
+    <WixVariable Id="WixUIDialogBmp" Value="wix/dialog.bmp" />
+    <WixVariable Id="WixUIBannerBmp" Value="wix/banner.bmp" />
+  </Product>
+
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFiles64Folder">
+        <Directory Id="INSTALLDIR" Name="VoiceAssistant">
+          <Component Id="ApplicationShortcut" Guid="B2C3D4E5-F6A7-4B5C-8D9E-0F1A2B3C4D5E">
+            <Shortcut
+              Id="ApplicationStartMenuShortcut"
+              Name="VoiceAssistant"
+              Description="Голосовой помощник для Windows"
+              Target="[#VoiceAssistant.exe]"
+              WorkingDirectory="INSTALLDIR"
+              Icon="ProductIcon" />
+            <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue
+              Root="HKCU"
+              Key="Software\VoiceAssistant"
+              Name="installed"
+              Type="integer"
+              Value="1"
+              KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+      
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="VoiceAssistant" />
+      </Directory>
+    </Directory>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLDIR">
+      <Component Id="VoiceAssistant.exe" Guid="C3D4E5F6-A7B8-4C5D-8E9F-0A1B2C3D4E5F">
+        <File
+          Id="VoiceAssistant.exe"
+          Source="$(var.CargoTargetBinDir)\VoiceAssistant.exe"
+          KeyPath="yes"
+          Checksum="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -30,9 +30,38 @@
         "icons/icon.ico"
       ],
       "windows": {
+        "certificateThumbprint": null,
+        "digestAlgorithm": "sha256",
+        "timestampUrl": "",
         "wix": {
-          "language": "ru-RU"
+          "language": "ru-RU",
+          "template": "wix/main.wxs",
+          "fragmentPaths": [],
+          "componentRefs": [],
+          "componentGroupRefs": [],
+          "featureRefs": [],
+          "mergeRefs": [],
+          "skipWebviewInstall": false,
+          "license": "wix/license.rtf",
+          "enableElevatedUpdateRuntime": false
         }
+      },
+      "shortDescription": "Голосовой помощник для Windows",
+      "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI Whisper и предоставления кратких технических ответов через overlay-интерфейс.",
+      "externalBin": [],
+      "copyright": "Copyright (c) 2025 VoiceAssistant",
+      "category": "Utility",
+      "fileAssociations": [],
+      "deb": {
+        "depends": []
+      },
+      "macOS": {
+        "frameworks": [],
+        "minimumSystemVersion": "",
+        "exceptionDomain": "",
+        "signingIdentity": null,
+        "providerShortName": null,
+        "entitlements": null
       }
     },
     "security": {

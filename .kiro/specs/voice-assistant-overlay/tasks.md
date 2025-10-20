@@ -148,7 +148,6 @@
 
 - [x] 11. Интеграция всех компонентов в main application flow
 
-
 - [x] 11.1 Создать главный App component
 
   - Инициализировать state management
@@ -174,7 +173,8 @@
   - Добавить retry UI для recoverable errors
   - _Requirements: 1.4, 2.4, 3.4_
 
-- [ ] 12. Настройка MSI installer
+- [x] 12. Настройка MSI installer
+
 
   - Настроить tauri.conf.json для MSI bundler
   - Создать WiX template для русской локализации
