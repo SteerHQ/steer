@@ -1,7 +1,7 @@
-import { invoke } from '@tauri-apps/api/core';
-import type { WhisperResponse, ErrorResponse } from '@steer/types';
+import { invoke } from "@tauri-apps/api/core";
+import type { WhisperResponse, ErrorResponse } from "@steer/types";
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = "http://localhost:3000";
 
 export class AudioPipeline {
   private apiKey: string;
@@ -17,7 +17,7 @@ export class AudioPipeline {
    */
   async processAudio(): Promise<string> {
     if (this.isProcessing) {
-      throw new Error('Audio processing already in progress');
+      throw new Error("Audio processing already in progress");
     }
 
     this.isProcessing = true;
@@ -27,7 +27,7 @@ export class AudioPipeline {
       const audioBuffer = await this.getAudioData();
 
       if (!audioBuffer || audioBuffer.length === 0) {
-        throw new Error('No audio data available');
+        throw new Error("No audio data available");
       }
 
       // Step 2: Process audio (convert to WAV)
@@ -36,15 +36,15 @@ export class AudioPipeline {
       // Step 3: Transcribe audio using Whisper API
       const transcription = await this.transcribeAudio(processedAudio);
 
-      if (!transcription.text || transcription.text.trim() === '') {
-        throw new Error('Transcription is empty');
+      if (!transcription.text || transcription.text.trim() === "") {
+        throw new Error("Transcription is empty");
       }
 
       // Step 4: Generate response using GPT-4o API
       const response = await this.generateResponse(transcription.text);
 
       // Step 5: Clear audio buffer (already done in getAudioData)
-      
+
       return response;
     } finally {
       this.isProcessing = false;
@@ -57,7 +57,21 @@ export class AudioPipeline {
    */
   private async getAudioData(): Promise<number[]> {
     try {
-      const buffer = await invoke<number[]>('get_audio_data');
+      const buffer = await invoke<number[]>("get_audio_data");
+
+      // Save audio for debugging
+      if (buffer && buffer.length > 0) {
+        try {
+          const path = await invoke<string>("save_audio_debug", {
+            buffer: Array.from(buffer),
+            sampleRate: 48000, // Adjust based on actual device sample rate
+          });
+          console.log("Debug audio saved to:", path);
+        } catch (saveError) {
+          console.warn("Failed to save debug audio:", saveError);
+        }
+      }
+
       return buffer;
     } catch (error) {
       throw new Error(`Failed to get audio data: ${error}`);
@@ -71,9 +85,9 @@ export class AudioPipeline {
   private async processAudioBuffer(buffer: number[]): Promise<number[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/audio/process`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           buffer,
@@ -82,8 +96,8 @@ export class AudioPipeline {
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as ErrorResponse;
-        throw new Error(errorData.error || 'Failed to process audio');
+        const errorData = (await response.json()) as ErrorResponse;
+        throw new Error(errorData.error || "Failed to process audio");
       }
 
       const data = await response.json();
@@ -92,7 +106,7 @@ export class AudioPipeline {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Failed to process audio buffer');
+      throw new Error("Failed to process audio buffer");
     }
   }
 
@@ -103,10 +117,10 @@ export class AudioPipeline {
   private async transcribeAudio(audioData: number[]): Promise<WhisperResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           audio: audioData,
@@ -114,8 +128,8 @@ export class AudioPipeline {
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as ErrorResponse;
-        throw new Error(errorData.error || 'Failed to transcribe audio');
+        const errorData = (await response.json()) as ErrorResponse;
+        throw new Error(errorData.error || "Failed to transcribe audio");
       }
 
       const data = await response.json();
@@ -124,7 +138,7 @@ export class AudioPipeline {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Failed to transcribe audio');
+      throw new Error("Failed to transcribe audio");
     }
   }
 
@@ -135,10 +149,10 @@ export class AudioPipeline {
   private async generateResponse(transcript: string): Promise<string> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/generate`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
         },
         body: JSON.stringify({
           transcript,
@@ -146,8 +160,8 @@ export class AudioPipeline {
       });
 
       if (!response.ok) {
-        const errorData = await response.json() as ErrorResponse;
-        throw new Error(errorData.error || 'Failed to generate response');
+        const errorData = (await response.json()) as ErrorResponse;
+        throw new Error(errorData.error || "Failed to generate response");
       }
 
       const data = await response.json();
@@ -156,7 +170,7 @@ export class AudioPipeline {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('Failed to generate response');
+      throw new Error("Failed to generate response");
     }
   }
 

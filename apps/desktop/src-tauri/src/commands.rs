@@ -15,36 +15,45 @@ impl AudioState {
     }
 }
 
-/// Start audio capture from VB-Cable device
+/// Start audio capture from specified device
 /// 
 /// # Arguments
 /// * `state` - Tauri state containing AudioCapture instance
+/// * `device_name` - Name of the audio device to use
 /// 
 /// # Returns
 /// * `Result<String, String>` - Success message or error
 #[tauri::command]
-pub async fn start_audio_capture(state: State<'_, AudioState>) -> Result<String, String> {
+pub async fn start_audio_capture(
+    state: State<'_, AudioState>,
+    device_name: String,
+) -> Result<String, String> {
     let mut capture_guard = state.capture.lock().unwrap();
     
-    // Create new AudioCapture instance if not exists
-    if capture_guard.is_none() {
-        match AudioCapture::new("VB-Cable") {
-            Ok(capture) => {
-                *capture_guard = Some(capture);
-            }
-            Err(AudioError::DeviceNotFound(msg)) => {
-                let err_msg = format!(
-                    "VB-Cable device not found. Please ensure VB-Cable is installed and configured. Details: {}",
-                    msg
-                );
-                tracing::error!("{}", err_msg);
-                return Err(err_msg);
-            }
-            Err(e) => {
-                let err_msg = format!("Failed to initialize audio capture: {}", e);
-                tracing::error!("{}", err_msg);
-                return Err(err_msg);
-            }
+    // Stop and remove existing capture if device changed
+    if capture_guard.is_some() {
+        tracing::info!("Stopping existing capture to switch device");
+        *capture_guard = None;
+    }
+    
+    // Create new AudioCapture instance with specified device
+    tracing::info!("Starting audio capture with device: {}", device_name);
+    match AudioCapture::new(&device_name) {
+        Ok(capture) => {
+            *capture_guard = Some(capture);
+        }
+        Err(AudioError::DeviceNotFound(msg)) => {
+            let err_msg = format!(
+                "Audio device '{}' not found. Details: {}",
+                device_name, msg
+            );
+            tracing::error!("{}", err_msg);
+            return Err(err_msg);
+        }
+        Err(e) => {
+            let err_msg = format!("Failed to initialize audio capture: {}", e);
+            tracing::error!("{}", err_msg);
+            return Err(err_msg);
         }
     }
     
@@ -56,7 +65,7 @@ pub async fn start_audio_capture(state: State<'_, AudioState>) -> Result<String,
             err_msg
         })?;
         
-        Ok("Audio capture started successfully".to_string())
+        Ok(format!("Audio capture started successfully with device: {}", device_name))
     } else {
         let err_msg = "Failed to initialize audio capture".to_string();
         tracing::error!("{}", err_msg);
@@ -156,4 +165,69 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     }
     
     Ok(device_names)
+}
+
+/// Save audio buffer to WAV file for debugging
+/// 
+/// # Arguments
+/// * `buffer` - Audio buffer data (16-bit PCM)
+/// * `sample_rate` - Sample rate of the audio
+/// 
+/// # Returns
+/// * `Result<String, String>` - Path to saved file or error
+#[tauri::command]
+pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<String, String> {
+    use std::fs::File;
+    use std::io::Write;
+    use std::path::PathBuf;
+    
+    // Create debug directory in user's documents
+    let mut debug_path = dirs::document_dir()
+        .ok_or_else(|| "Failed to get documents directory".to_string())?;
+    debug_path.push("VoiceAssistant");
+    debug_path.push("debug");
+    
+    std::fs::create_dir_all(&debug_path)
+        .map_err(|e| format!("Failed to create debug directory: {}", e))?;
+    
+    // Generate filename with timestamp
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let filename = format!("audio_debug_{}.wav", timestamp);
+    debug_path.push(filename);
+    
+    // Write WAV file
+    let mut file = File::create(&debug_path)
+        .map_err(|e| format!("Failed to create file: {}", e))?;
+    
+    // WAV header
+    let num_channels: u16 = 1; // mono
+    let bits_per_sample: u16 = 16;
+    let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
+    let block_align = num_channels * bits_per_sample / 8;
+    let data_size = buffer.len() as u32;
+    
+    // RIFF header
+    file.write_all(b"RIFF").map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&(36 + data_size).to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(b"WAVE").map_err(|e| format!("Write error: {}", e))?;
+    
+    // fmt chunk
+    file.write_all(b"fmt ").map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&16u32.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?; // chunk size
+    file.write_all(&1u16.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?; // audio format (PCM)
+    file.write_all(&num_channels.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&sample_rate.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&byte_rate.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&block_align.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&bits_per_sample.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    
+    // data chunk
+    file.write_all(b"data").map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&data_size.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&buffer).map_err(|e| format!("Write error: {}", e))?;
+    
+    let path_str = debug_path.to_string_lossy().to_string();
+    tracing::info!("Saved debug audio to: {}", path_str);
+    
+    Ok(path_str)
 }

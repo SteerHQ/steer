@@ -132,10 +132,17 @@ function App() {
    */
   const startAudioCapture = async () => {
     try {
-      await invoke<string>("start_audio_capture");
+      // Use the configured audio device from config
+      const deviceName = config?.audioDevice || "VB-Cable";
+      console.log("Starting audio capture with device:", deviceName);
+
+      await invoke<string>("start_audio_capture", { deviceName });
       startCapture();
       setAudioDeviceConnected(true);
-      console.log("Audio capture started successfully");
+      console.log(
+        "Audio capture started successfully with device:",
+        deviceName
+      );
     } catch (error) {
       console.error("Failed to start audio capture:", error);
       setAudioDeviceConnected(false);
@@ -153,6 +160,9 @@ function App() {
    */
   const handleSettingsSave = async (newConfig: AppConfig) => {
     try {
+      const oldDeviceName = config?.audioDevice;
+      const newDeviceName = newConfig.audioDevice;
+
       // Save API key and config to localStorage
       localStorage.setItem("openai_api_key", newConfig.apiKey);
       localStorage.setItem("app_config", JSON.stringify(newConfig));
@@ -160,6 +170,20 @@ function App() {
       setConfig(newConfig);
       setApiKeyConfigured(true);
       setShowSettings(false);
+
+      // If device changed and capture is active, restart with new device
+      if (isCapturing && oldDeviceName !== newDeviceName) {
+        console.log("Audio device changed, restarting capture...");
+        try {
+          await invoke<string>("stop_audio_capture");
+          await invoke<string>("start_audio_capture", {
+            deviceName: newDeviceName,
+          });
+          console.log("Capture restarted with new device:", newDeviceName);
+        } catch (error) {
+          console.error("Failed to restart capture with new device:", error);
+        }
+      }
 
       // Check audio device after configuration
       await checkAudioDevice();
@@ -341,6 +365,33 @@ function App() {
       />
 
       <div className="app-actions">
+        <button
+          onClick={async () => {
+            try {
+              const buffer = await invoke<number[]>("get_audio_data");
+              if (buffer && buffer.length > 0) {
+                const path = await invoke<string>("save_audio_debug", {
+                  buffer: Array.from(buffer),
+                  sampleRate: 48000,
+                });
+                alert(`Аудио сохранено в:\n${path}`);
+              } else {
+                alert("Нет аудио данных для сохранения");
+              }
+            } catch (error) {
+              alert(`Ошибка сохранения: ${error}`);
+            }
+          }}
+          className="btn btn-secondary"
+          disabled={!isCapturing}
+          title={
+            !isCapturing
+              ? "Сначала начните захват аудио"
+              : "Сохранить текущее аудио в файл"
+          }
+        >
+          💾 Сохранить аудио
+        </button>
         <button
           onClick={clearMessages}
           className="btn btn-secondary"

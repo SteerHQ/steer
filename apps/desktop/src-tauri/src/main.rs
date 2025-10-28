@@ -23,6 +23,7 @@ fn main() {
             commands::stop_audio_capture,
             commands::get_capture_status,
             commands::get_audio_devices,
+            commands::save_audio_debug,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
