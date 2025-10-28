@@ -1,78 +1,45 @@
 {
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "VoiceAssistant",
+  "version": "1.0.0",
+  "identifier": "com.voiceassistant.app",
   "build": {
     "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "bun run build",
-    "devPath": "http://localhost:1420",
-    "distDir": "../dist",
-    "withGlobalTauri": false
+    "frontendDist": "../dist"
   },
-  "package": {
-    "productName": "VoiceAssistant",
-    "version": "1.0.0"
+  "bundle": {
+    "active": true,
+    "targets": ["msi"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "wix": {
+        "language": "ru-RU"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      },
+      "allowDowngrades": false
+    },
+    "shortDescription": "Голосовой помощник для Windows",
+    "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI Whisper и предоставления кратких технических ответов через overlay-интерфейс.",
+    "externalBin": [],
+    "copyright": "Copyright (c) 2025 VoiceAssistant",
+    "category": "Utility",
+    "fileAssociations": [],
+    "resources": []
   },
-  "tauri": {
-    "allowlist": {
-      "all": false,
-      "shell": {
-        "all": false,
-        "open": true
-      }
-    },
-    "bundle": {
-      "active": true,
-      "targets": ["msi"],
-      "identifier": "com.voiceassistant.app",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.icns",
-        "icons/icon.ico"
-      ],
-      "windows": {
-        "certificateThumbprint": null,
-        "digestAlgorithm": "sha256",
-        "timestampUrl": "",
-        "wix": {
-          "language": "ru-RU",
-          "template": "wix/main.wxs",
-          "fragmentPaths": [],
-          "componentRefs": [],
-          "componentGroupRefs": [],
-          "featureRefs": [],
-          "mergeRefs": [],
-          "skipWebviewInstall": false,
-          "license": "wix/license.rtf",
-          "enableElevatedUpdateRuntime": false
-        },
-        "webviewInstallMode": {
-          "type": "embedBootstrapper"
-        },
-        "allowDowngrades": false,
-        "nsis": null
-      },
-      "shortDescription": "Голосовой помощник для Windows",
-      "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI Whisper и предоставления кратких технических ответов через overlay-интерфейс.",
-      "externalBin": [],
-      "copyright": "Copyright (c) 2025 VoiceAssistant",
-      "category": "Utility",
-      "fileAssociations": [],
-      "deb": {
-        "depends": []
-      },
-      "macOS": {
-        "frameworks": [],
-        "minimumSystemVersion": "",
-        "exceptionDomain": "",
-        "signingIdentity": null,
-        "providerShortName": null,
-        "entitlements": null
-      },
-      "resources": []
-    },
-    "security": {
-      "csp": null
-    },
+  "app": {
     "windows": [
       {
         "label": "main",
@@ -87,6 +54,10 @@
         "skipTaskbar": true,
         "visible": true
       }
-    ]
-  }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {}
 }
