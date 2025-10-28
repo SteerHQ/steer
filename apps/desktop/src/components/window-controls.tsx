@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Window } from "@tauri-apps/api/window";
 
 export const WindowControls: React.FC = () => {
-  const appWindow = getCurrentWindow();
+  const [appWindow] = useState(() => Window.getCurrent());
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {

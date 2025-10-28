@@ -127,3 +127,33 @@ pub async fn get_capture_status(state: State<'_, AudioState>) -> Result<bool, St
     let capture_guard = state.capture.lock().unwrap();
     Ok(capture_guard.is_some())
 }
+
+/// Get list of available audio input devices
+/// 
+/// # Returns
+/// * `Result<Vec<String>, String>` - List of device names or error
+#[tauri::command]
+pub async fn get_audio_devices() -> Result<Vec<String>, String> {
+    use cpal::traits::{HostTrait, DeviceTrait};
+    
+    let host = cpal::default_host();
+    
+    let devices = host
+        .input_devices()
+        .map_err(|e| format!("Failed to enumerate devices: {}", e))?;
+    
+    let mut device_names = Vec::new();
+    for device in devices {
+        if let Ok(name) = device.name() {
+            tracing::info!("Found audio device: {}", name);
+            device_names.push(name);
+        }
+    }
+    
+    if device_names.is_empty() {
+        tracing::warn!("No audio input devices found");
+        return Err("No audio input devices found".to_string());
+    }
+    
+    Ok(device_names)
+}

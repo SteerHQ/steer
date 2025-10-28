@@ -39,21 +39,35 @@ impl AudioCapture {
     pub fn new(device_name: &str) -> Result<Self, AudioError> {
         let host = cpal::default_host();
         
-        // Find the device by name
-        let device = host
+        // List all available devices for debugging
+        tracing::info!("Searching for audio device: {}", device_name);
+        let devices = host
             .input_devices()
             .map_err(|e| {
                 let err = AudioError::DeviceNotFound(format!("Failed to enumerate devices: {}", e));
                 tracing::error!("{}", err);
                 err
-            })?
-            .find(|d| {
-                if let Ok(name) = d.name() {
-                    name.contains(device_name)
-                } else {
-                    false
-                }
+            })?;
+        
+        let mut available_devices = Vec::new();
+        for device in devices {
+            if let Ok(name) = device.name() {
+                tracing::info!("Found device: {}", name);
+                available_devices.push((name.clone(), device));
+            }
+        }
+        
+        // Find the device by name (case-insensitive partial match)
+        let device_name_lower = device_name.to_lowercase();
+        let device = available_devices
+            .into_iter()
+            .find(|(name, _)| {
+                let name_lower = name.to_lowercase();
+                name_lower.contains(&device_name_lower) || 
+                name_lower.contains("cable") ||
+                name_lower.contains("vb-audio")
             })
+            .map(|(_, device)| device)
             .ok_or_else(|| {
                 let err = AudioError::DeviceNotFound(format!(
                     "Device '{}' not found. Please ensure VB-Cable is installed and configured.",
