@@ -1,13 +1,25 @@
-import { create } from 'zustand';
-import { AppState } from '@steer/types';
-import { ErrorResponse } from '@steer/types';
+import { create } from "zustand";
+import { AppState } from "@steer/types";
+import { ErrorResponse } from "@steer/types";
+
+export interface ChatMessage {
+  id: string;
+  type: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
 
 export interface AppStore extends AppState {
+  // Chat messages
+  messages: ChatMessage[];
+
   // Actions
   startCapture: () => void;
   stopCapture: () => void;
   setTranscript: (transcript: string) => void;
   setResponse: (response: string) => void;
+  addMessage: (type: "user" | "assistant", content: string) => void;
+  clearMessages: () => void;
   showOverlay: () => void;
   hideOverlay: () => void;
   setError: (error: ErrorResponse | null) => void;
@@ -31,6 +43,7 @@ const initialState: AppState = {
 
 export const useAppStore = create<AppStore>((set) => ({
   ...initialState,
+  messages: [],
 
   // Start audio capture
   startCapture: () =>
@@ -47,15 +60,53 @@ export const useAppStore = create<AppStore>((set) => ({
 
   // Set transcript from Whisper API
   setTranscript: (transcript: string) =>
-    set((state) => ({
-      currentTranscript: transcript,
-    })),
+    set((state) => {
+      const userMessage: ChatMessage = {
+        id: `user-${Date.now()}`,
+        type: "user",
+        content: transcript,
+        timestamp: new Date(),
+      };
+      return {
+        currentTranscript: transcript,
+        messages: [...state.messages, userMessage],
+      };
+    }),
 
   // Set response from GPT-4o API
   setResponse: (response: string) =>
+    set((state) => {
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        type: "assistant",
+        content: response,
+        timestamp: new Date(),
+      };
+      return {
+        currentResponse: response,
+        overlayVisible: true,
+        messages: [...state.messages, assistantMessage],
+      };
+    }),
+
+  // Add a message to chat
+  addMessage: (type: "user" | "assistant", content: string) =>
+    set((state) => {
+      const message: ChatMessage = {
+        id: `${type}-${Date.now()}`,
+        type,
+        content,
+        timestamp: new Date(),
+      };
+      return {
+        messages: [...state.messages, message],
+      };
+    }),
+
+  // Clear all messages
+  clearMessages: () =>
     set((state) => ({
-      currentResponse: response,
-      overlayVisible: true,
+      messages: [],
     })),
 
   // Show overlay window

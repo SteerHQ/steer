@@ -6,6 +6,7 @@ import { OverlayWindow } from "./components/overlay-window";
 import { StatusIndicator } from "./components/status-indicator";
 import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
+import { Chat } from "./components/chat";
 import { AudioPipeline } from "./services/audio-pipeline";
 import type { AppConfig } from "@steer/types";
 
@@ -24,6 +25,7 @@ function App() {
     apiKeyConfigured,
     audioDeviceConnected,
     error,
+    messages,
     setApiKeyConfigured,
     setAudioDeviceConnected,
     setError,
@@ -32,6 +34,7 @@ function App() {
     setProcessing,
     setTranscript,
     setResponse,
+    clearMessages,
   } = useAppStore();
 
   // Initialize application on mount
@@ -322,26 +325,9 @@ function App() {
         errorMessage={error?.error}
       />
 
-      {currentResponse && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "16px",
-            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-            borderRadius: "8px",
-            color: "#fff",
-          }}
-        >
-          <h3
-            style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 600 }}
-          >
-            Последний ответ:
-          </h3>
-          <p style={{ margin: 0, lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
-            {currentResponse}
-          </p>
-        </div>
-      )}
+      <div style={{ flex: 1, marginTop: "20px", minHeight: 0 }}>
+        <Chat messages={messages} isProcessing={isProcessing} />
+      </div>
 
       <OverlayWindow
         message={
@@ -356,10 +342,22 @@ function App() {
 
       <div className="app-actions">
         <button
+          onClick={clearMessages}
+          className="btn btn-secondary"
+          disabled={messages.length === 0}
+          title={
+            messages.length === 0
+              ? "Нет сообщений для очистки"
+              : "Очистить историю"
+          }
+        >
+          🗑️ Очистить чат
+        </button>
+        <button
           onClick={() => setShowSettings(true)}
           className="btn btn-secondary"
         >
-          Настройки
+          ⚙️ Настройки
         </button>
       </div>
     </div>

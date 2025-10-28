@@ -89,7 +89,6 @@ export class OpenAIService {
           system: "Отвечай коротко, по-русски, давай технический ответ",
           prompt: transcript,
           maxRetries: 0, // We handle retries ourselves
-          temperature: 0.7,
         });
 
         return text;
