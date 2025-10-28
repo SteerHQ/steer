@@ -322,6 +322,27 @@ function App() {
         errorMessage={error?.error}
       />
 
+      {currentResponse && (
+        <div
+          style={{
+            marginTop: "20px",
+            padding: "16px",
+            background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+            borderRadius: "8px",
+            color: "#fff",
+          }}
+        >
+          <h3
+            style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: 600 }}
+          >
+            Последний ответ:
+          </h3>
+          <p style={{ margin: 0, lineHeight: "1.6", whiteSpace: "pre-wrap" }}>
+            {currentResponse}
+          </p>
+        </div>
+      )}
+
       <OverlayWindow
         message={
           currentResponse ||

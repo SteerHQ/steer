@@ -85,7 +85,7 @@ export class OpenAIService {
     return this.withRetry(async () => {
       try {
         const { text } = await generateText({
-          model: this.openai("gpt-4o"),
+          model: this.openai("gpt-5"),
           system: "Отвечай коротко, по-русски, давай технический ответ",
           prompt: transcript,
           maxRetries: 0, // We handle retries ourselves

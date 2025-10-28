@@ -11,7 +11,7 @@ export const WindowControls: React.FC = () => {
       setIsMaximized(maximized);
     };
     checkMaximized();
-  }, []);
+  }, [appWindow]);
 
   const handleMinimize = async () => {
     try {
@@ -40,7 +40,6 @@ export const WindowControls: React.FC = () => {
       console.log("Window closed");
     } catch (error) {
       console.error("Failed to close:", error);
-      // Попробуем альтернативный метод
       try {
         await appWindow.destroy();
         console.log("Window destroyed");
@@ -63,14 +62,10 @@ export const WindowControls: React.FC = () => {
     alignItems: "center",
     justifyContent: "center",
     transition: "background-color 0.2s",
-    pointerEvents: "auto",
-    position: "relative",
-    zIndex: 10,
   };
 
   return (
     <div
-      data-tauri-drag-region
       className="window-controls"
       style={{
         position: "fixed",
@@ -81,36 +76,47 @@ export const WindowControls: React.FC = () => {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        padding: "0 10px",
         backgroundColor: "rgba(30, 30, 30, 0.95)",
         backdropFilter: "blur(10px)",
         zIndex: 1000,
         borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-        cursor: "move",
       }}
     >
+      {/* Drag region - занимает всё пространство кроме кнопок */}
+      <div
+        data-tauri-drag-region
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 120,
+          bottom: 0,
+          cursor: "move",
+        }}
+      />
+
+      {/* Title */}
       <div
         style={{
           fontSize: "13px",
           color: "#fff",
           userSelect: "none",
           fontWeight: 500,
-          flex: 1,
-          height: "100%",
-          display: "flex",
-          alignItems: "center",
+          paddingLeft: "10px",
+          zIndex: 1,
           pointerEvents: "none",
         }}
       >
         Voice Assistant
       </div>
+
+      {/* Buttons */}
       <div
         style={{
           display: "flex",
           gap: "6px",
-          position: "relative",
-          zIndex: 10,
-          pointerEvents: "auto",
+          paddingRight: "10px",
+          zIndex: 2,
         }}
       >
         <button

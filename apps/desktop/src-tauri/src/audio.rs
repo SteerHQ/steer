@@ -98,8 +98,7 @@ impl AudioCapture {
 
     /// Start capturing audio from the device
     /// 
-    /// Configures the audio stream with 16kHz, 16-bit PCM, mono format
-    /// and starts capturing audio data into the internal buffer.
+    /// Uses the device's default configuration and starts capturing audio data.
     /// 
     /// # Returns
     /// * `Result<(), AudioError>` - Success or error
@@ -109,33 +108,41 @@ impl AudioCapture {
             return Ok(()); // Already capturing
         }
 
-        // Configure stream for 16kHz, 16-bit PCM, mono
-        let config = StreamConfig {
-            channels: 1, // mono
-            sample_rate: cpal::SampleRate(16000), // 16kHz
-            buffer_size: cpal::BufferSize::Default,
-        };
+        // Get the default configuration from the device
+        let supported_config = self.device
+            .default_input_config()
+            .map_err(|e| {
+                let err = AudioError::ConfigError(format!("Failed to get default config: {}", e));
+                tracing::error!("{}", err);
+                err
+            })?;
+
+        tracing::info!("Using device config: {:?}", supported_config);
+        
+        let config: StreamConfig = supported_config.into();
 
         let buffer = Arc::clone(&self.buffer);
         let err_buffer = Arc::clone(&self.buffer);
         let is_capturing_clone = Arc::clone(&self.is_capturing);
 
-        // Build the input stream
+        // Build the input stream with f32 samples (most common format)
         let stream = self
             .device
             .build_input_stream(
                 &config,
-                move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                    // Convert i16 samples to bytes (16-bit PCM)
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    // Convert f32 samples to i16 PCM bytes
                     let mut buffer = buffer.lock().unwrap();
                     for &sample in data.iter() {
-                        let bytes = sample.to_le_bytes();
+                        // Convert f32 (-1.0 to 1.0) to i16 (-32768 to 32767)
+                        let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+                        let bytes = sample_i16.to_le_bytes();
                         buffer.extend_from_slice(&bytes);
                     }
                     
-                    // Limit buffer to 10 seconds of audio (160KB at 16kHz mono 16-bit)
-                    // 16000 samples/sec * 2 bytes/sample * 10 seconds = 320000 bytes
-                    const MAX_BUFFER_SIZE: usize = 320_000;
+                    // Limit buffer to 10 seconds of audio
+                    // Approximate: 48000 samples/sec * 2 bytes/sample * 10 seconds = 960000 bytes
+                    const MAX_BUFFER_SIZE: usize = 960_000;
                     if buffer.len() > MAX_BUFFER_SIZE {
                         let len = buffer.len();
                         buffer.drain(0..(len - MAX_BUFFER_SIZE));
