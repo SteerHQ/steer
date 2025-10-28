@@ -70,6 +70,7 @@ export const WindowControls: React.FC = () => {
 
   return (
     <div
+      data-tauri-drag-region
       className="window-controls"
       style={{
         position: "fixed",
@@ -85,20 +86,20 @@ export const WindowControls: React.FC = () => {
         backdropFilter: "blur(10px)",
         zIndex: 1000,
         borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
+        cursor: "move",
       }}
     >
       <div
-        data-tauri-drag-region
         style={{
           fontSize: "13px",
           color: "#fff",
           userSelect: "none",
           fontWeight: 500,
-          cursor: "move",
           flex: 1,
           height: "100%",
           display: "flex",
           alignItems: "center",
+          pointerEvents: "none",
         }}
       >
         Voice Assistant
@@ -109,6 +110,7 @@ export const WindowControls: React.FC = () => {
           gap: "6px",
           position: "relative",
           zIndex: 10,
+          pointerEvents: "auto",
         }}
       >
         <button
