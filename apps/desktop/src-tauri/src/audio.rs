@@ -41,37 +41,59 @@ impl AudioCapture {
         
         // List all available devices for debugging
         tracing::info!("Searching for audio device: {}", device_name);
-        let devices = host
-            .input_devices()
-            .map_err(|e| {
-                let err = AudioError::DeviceNotFound(format!("Failed to enumerate devices: {}", e));
-                tracing::error!("{}", err);
-                err
-            })?;
+        
+        // Clean device name (remove suffixes like " (Input)" or " (Output)")
+        let clean_device_name = device_name
+            .replace(" (Input)", "")
+            .replace(" (Output)", "")
+            .replace(" (Output/Loopback)", "");
         
         let mut available_devices = Vec::new();
-        for device in devices {
-            if let Ok(name) = device.name() {
-                tracing::info!("Found device: {}", name);
-                available_devices.push((name.clone(), device));
+        
+        // Check input devices
+        if let Ok(devices) = host.input_devices() {
+            for device in devices {
+                if let Ok(name) = device.name() {
+                    tracing::info!("Found input device: {}", name);
+                    available_devices.push((name.clone(), device));
+                }
             }
         }
         
-        // Find the device by name (case-insensitive partial match)
-        let device_name_lower = device_name.to_lowercase();
+        // Check output devices (for loopback like VB-Cable)
+        if let Ok(devices) = host.output_devices() {
+            for device in devices {
+                if let Ok(name) = device.name() {
+                    tracing::info!("Found output device: {}", name);
+                    // Only add if it supports input config (loopback)
+                    if device.default_input_config().is_ok() {
+                        available_devices.push((name.clone(), device));
+                    }
+                }
+            }
+        }
+        
+        // Find the device by exact name match first, then try partial match
         let device = available_devices
-            .into_iter()
-            .find(|(name, _)| {
-                let name_lower = name.to_lowercase();
-                name_lower.contains(&device_name_lower) || 
-                name_lower.contains("cable") ||
-                name_lower.contains("vb-audio")
+            .iter()
+            .find(|(name, _)| name == &clean_device_name || name == device_name)
+            .or_else(|| {
+                // If exact match not found, try case-insensitive partial match
+                let search_lower = clean_device_name.to_lowercase();
+                available_devices.iter().find(|(name, _)| {
+                    let name_lower = name.to_lowercase();
+                    name_lower.contains(&search_lower) || search_lower.contains(&name_lower)
+                })
             })
-            .map(|(_, device)| device)
+            .map(|(_, device)| device.clone())
             .ok_or_else(|| {
+                let available_names: Vec<String> = available_devices.iter()
+                    .map(|(name, _)| name.clone())
+                    .collect();
                 let err = AudioError::DeviceNotFound(format!(
-                    "Device '{}' not found. Please ensure VB-Cable is installed and configured.",
-                    device_name
+                    "Device '{}' not found. Available devices: {}",
+                    device_name,
+                    available_names.join(", ")
                 ));
                 tracing::error!("{}", err);
                 err

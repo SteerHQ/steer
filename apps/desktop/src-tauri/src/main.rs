@@ -24,6 +24,7 @@ fn main() {
             commands::get_capture_status,
             commands::get_audio_devices,
             commands::save_audio_debug,
+            commands::get_audio_level,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

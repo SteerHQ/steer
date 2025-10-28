@@ -7,6 +7,7 @@ import { StatusIndicator } from "./components/status-indicator";
 import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
+import { AudioVisualizer } from "./components/audio-visualizer";
 import { AudioPipeline } from "./services/audio-pipeline";
 import type { AppConfig } from "@steer/types";
 
@@ -348,6 +349,10 @@ function App() {
         apiKeyConfigured={apiKeyConfigured}
         errorMessage={error?.error}
       />
+
+      <div style={{ marginTop: "20px" }}>
+        <AudioVisualizer isActive={isCapturing} />
+      </div>
 
       <div style={{ flex: 1, marginTop: "20px", minHeight: 0 }}>
         <Chat messages={messages} isProcessing={isProcessing} />

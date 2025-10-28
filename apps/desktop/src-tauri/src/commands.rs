@@ -137,7 +137,48 @@ pub async fn get_capture_status(state: State<'_, AudioState>) -> Result<bool, St
     Ok(capture_guard.is_some())
 }
 
-/// Get list of available audio input devices
+/// Get current audio level (volume)
+/// 
+/// # Arguments
+/// * `state` - Tauri state containing AudioCapture instance
+/// 
+/// # Returns
+/// * `Result<f32, String>` - Audio level from 0.0 to 1.0
+#[tauri::command]
+pub async fn get_audio_level(state: State<'_, AudioState>) -> Result<f32, String> {
+    let capture_guard = state.capture.lock().unwrap();
+    
+    if let Some(ref capture) = *capture_guard {
+        let buffer = capture.get_buffer();
+        
+        if buffer.is_empty() {
+            return Ok(0.0);
+        }
+        
+        // Calculate RMS (Root Mean Square) for audio level
+        let mut sum: f64 = 0.0;
+        let sample_count = buffer.len() / 2; // 16-bit samples = 2 bytes each
+        
+        for i in 0..sample_count {
+            let idx = i * 2;
+            if idx + 1 < buffer.len() {
+                // Convert bytes to i16 sample
+                let sample = i16::from_le_bytes([buffer[idx], buffer[idx + 1]]);
+                let normalized = sample as f64 / 32768.0; // Normalize to -1.0 to 1.0
+                sum += normalized * normalized;
+            }
+        }
+        
+        let rms = (sum / sample_count as f64).sqrt();
+        let level = (rms * 2.0).min(1.0) as f32; // Scale and clamp to 0.0-1.0
+        
+        Ok(level)
+    } else {
+        Ok(0.0)
+    }
+}
+
+/// Get list of available audio devices (both input and output)
 /// 
 /// # Returns
 /// * `Result<Vec<String>, String>` - List of device names or error
@@ -146,24 +187,41 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     use cpal::traits::{HostTrait, DeviceTrait};
     
     let host = cpal::default_host();
-    
-    let devices = host
-        .input_devices()
-        .map_err(|e| format!("Failed to enumerate devices: {}", e))?;
-    
     let mut device_names = Vec::new();
-    for device in devices {
-        if let Ok(name) = device.name() {
-            tracing::info!("Found audio device: {}", name);
-            device_names.push(name);
+    
+    // Get input devices
+    tracing::info!("Enumerating input devices...");
+    if let Ok(devices) = host.input_devices() {
+        for device in devices {
+            if let Ok(name) = device.name() {
+                tracing::info!("Found input device: {}", name);
+                device_names.push(format!("{} (Input)", name));
+            }
+        }
+    }
+    
+    // Get output devices (for loopback capture like VB-Cable)
+    tracing::info!("Enumerating output devices...");
+    if let Ok(devices) = host.output_devices() {
+        for device in devices {
+            if let Ok(name) = device.name() {
+                tracing::info!("Found output device: {}", name);
+                // Check if this output device supports input (loopback)
+                if device.default_input_config().is_ok() {
+                    device_names.push(format!("{} (Output/Loopback)", name));
+                } else {
+                    device_names.push(format!("{} (Output)", name));
+                }
+            }
         }
     }
     
     if device_names.is_empty() {
-        tracing::warn!("No audio input devices found");
-        return Err("No audio input devices found".to_string());
+        tracing::warn!("No audio devices found");
+        return Err("No audio devices found".to_string());
     }
     
+    tracing::info!("Total devices found: {}", device_names.len());
     Ok(device_names)
 }
 
