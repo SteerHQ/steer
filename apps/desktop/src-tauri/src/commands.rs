@@ -4,7 +4,7 @@ use tauri::State;
 
 /// Global state for audio capture
 pub struct AudioState {
-    pub capture: Mutex<Option<AudioCapture>>,
+    capture: Mutex<Option<AudioCapture>>,
 }
 
 impl AudioState {

@@ -15,7 +15,7 @@ fn main() {
     
     tracing::info!("VoiceAssistant starting...");
     
-    tauri::Builder::default()
+    tauri::Builder::<tauri::Wry>::default()
         .manage(AudioState::new())
         .invoke_handler(tauri::generate_handler![
             commands::start_audio_capture,

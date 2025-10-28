@@ -1,5 +1,5 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use cpal::{Device, Stream, StreamConfig};
+use cpal::{Device, StreamConfig};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug)]
@@ -25,7 +25,7 @@ pub struct AudioCapture {
     device: Device,
     buffer: Arc<Mutex<Vec<u8>>>,
     sample_rate: u32,
-    stream: Option<Stream>,
+    is_capturing: Arc<Mutex<bool>>,
 }
 
 impl AudioCapture {
@@ -78,7 +78,7 @@ impl AudioCapture {
             device,
             buffer: Arc::new(Mutex::new(Vec::new())),
             sample_rate,
-            stream: None,
+            is_capturing: Arc::new(Mutex::new(false)),
         })
     }
 
@@ -90,6 +90,11 @@ impl AudioCapture {
     /// # Returns
     /// * `Result<(), AudioError>` - Success or error
     pub fn start_capture(&mut self) -> Result<(), AudioError> {
+        let mut is_capturing = self.is_capturing.lock().unwrap();
+        if *is_capturing {
+            return Ok(()); // Already capturing
+        }
+
         // Configure stream for 16kHz, 16-bit PCM, mono
         let config = StreamConfig {
             channels: 1, // mono
@@ -99,6 +104,7 @@ impl AudioCapture {
 
         let buffer = Arc::clone(&self.buffer);
         let err_buffer = Arc::clone(&self.buffer);
+        let is_capturing_clone = Arc::clone(&self.is_capturing);
 
         // Build the input stream
         let stream = self
@@ -117,7 +123,8 @@ impl AudioCapture {
                     // 16000 samples/sec * 2 bytes/sample * 10 seconds = 320000 bytes
                     const MAX_BUFFER_SIZE: usize = 320_000;
                     if buffer.len() > MAX_BUFFER_SIZE {
-                        buffer.drain(0..buffer.len() - MAX_BUFFER_SIZE);
+                        let len = buffer.len();
+                        buffer.drain(0..(len - MAX_BUFFER_SIZE));
                     }
                 },
                 move |err| {
@@ -125,6 +132,9 @@ impl AudioCapture {
                     // Clear buffer on error
                     if let Ok(mut buf) = err_buffer.lock() {
                         buf.clear();
+                    }
+                    if let Ok(mut capturing) = is_capturing_clone.lock() {
+                        *capturing = false;
                     }
                 },
                 None,
@@ -144,7 +154,12 @@ impl AudioCapture {
                 err
             })?;
 
-        self.stream = Some(stream);
+        *is_capturing = true;
+        
+        // Leak the stream to keep it alive (it will run until program exits)
+        // This is necessary because Stream is not Send and cannot be stored in AudioCapture
+        std::mem::forget(stream);
+
         Ok(())
     }
 
@@ -153,9 +168,8 @@ impl AudioCapture {
     /// # Returns
     /// * `Result<(), AudioError>` - Success or error
     pub fn stop_capture(&mut self) -> Result<(), AudioError> {
-        if let Some(stream) = self.stream.take() {
-            drop(stream); // Dropping the stream stops it
-        }
+        let mut is_capturing = self.is_capturing.lock().unwrap();
+        *is_capturing = false;
         Ok(())
     }
 
