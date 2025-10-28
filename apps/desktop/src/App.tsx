@@ -1,12 +1,13 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { useAppStore } from './store';
-import { Settings } from './components/settings';
-import { OverlayWindow } from './components/overlay-window';
-import { StatusIndicator } from './components/status-indicator';
-import { ErrorDisplay } from './components/error-display';
-import { AudioPipeline } from './services/audio-pipeline';
-import type { AppConfig } from '@steer/types';
+import React, { useEffect, useState, useRef } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useAppStore } from "./store";
+import { Settings } from "./components/settings";
+import { OverlayWindow } from "./components/overlay-window";
+import { StatusIndicator } from "./components/status-indicator";
+import { ErrorDisplay } from "./components/error-display";
+import { WindowControls } from "./components/window-controls";
+import { AudioPipeline } from "./services/audio-pipeline";
+import type { AppConfig } from "@steer/types";
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
@@ -15,7 +16,7 @@ function App() {
   const processingIntervalRef = useRef<number | null>(null);
 
   // Access state from the store
-  const { 
+  const {
     isCapturing,
     isProcessing,
     currentResponse,
@@ -40,7 +41,12 @@ function App() {
 
   // Start audio capture when API key is configured and device is connected
   useEffect(() => {
-    if (apiKeyConfigured && audioDeviceConnected && !isCapturing && !showSettings) {
+    if (
+      apiKeyConfigured &&
+      audioDeviceConnected &&
+      !isCapturing &&
+      !showSettings
+    ) {
       startAudioCapture();
     }
   }, [apiKeyConfigured, audioDeviceConnected, showSettings]);
@@ -74,8 +80,8 @@ function App() {
   const initializeApp = async () => {
     try {
       // Check if API key exists in localStorage
-      const storedApiKey = localStorage.getItem('openai_api_key');
-      const storedConfig = localStorage.getItem('app_config');
+      const storedApiKey = localStorage.getItem("openai_api_key");
+      const storedConfig = localStorage.getItem("app_config");
 
       if (storedApiKey && storedConfig) {
         const parsedConfig = JSON.parse(storedConfig) as AppConfig;
@@ -89,10 +95,10 @@ function App() {
         setShowSettings(true);
       }
     } catch (error) {
-      console.error('Failed to initialize app:', error);
+      console.error("Failed to initialize app:", error);
       setError({
-        error: 'Failed to initialize application',
-        code: 'INIT_ERROR',
+        error: "Failed to initialize application",
+        code: "INIT_ERROR",
         retryable: false,
       });
     }
@@ -104,14 +110,15 @@ function App() {
   const checkAudioDevice = async () => {
     try {
       // Try to get capture status from Tauri
-      const status = await invoke<boolean>('get_capture_status');
+      const status = await invoke<boolean>("get_capture_status");
       setAudioDeviceConnected(true);
     } catch (error) {
-      console.error('Audio device check failed:', error);
+      console.error("Audio device check failed:", error);
       setAudioDeviceConnected(false);
       setError({
-        error: 'VB-Cable device not found. Please ensure VB-Cable is installed.',
-        code: 'DEVICE_NOT_FOUND',
+        error:
+          "VB-Cable device not found. Please ensure VB-Cable is installed.",
+        code: "DEVICE_NOT_FOUND",
         retryable: true,
       });
     }
@@ -122,16 +129,17 @@ function App() {
    */
   const startAudioCapture = async () => {
     try {
-      await invoke<string>('start_audio_capture');
+      await invoke<string>("start_audio_capture");
       startCapture();
       setAudioDeviceConnected(true);
-      console.log('Audio capture started successfully');
+      console.log("Audio capture started successfully");
     } catch (error) {
-      console.error('Failed to start audio capture:', error);
+      console.error("Failed to start audio capture:", error);
       setAudioDeviceConnected(false);
       setError({
-        error: typeof error === 'string' ? error : 'Failed to start audio capture',
-        code: 'CAPTURE_START_ERROR',
+        error:
+          typeof error === "string" ? error : "Failed to start audio capture",
+        code: "CAPTURE_START_ERROR",
         retryable: true,
       });
     }
@@ -143,8 +151,8 @@ function App() {
   const handleSettingsSave = async (newConfig: AppConfig) => {
     try {
       // Save API key and config to localStorage
-      localStorage.setItem('openai_api_key', newConfig.apiKey);
-      localStorage.setItem('app_config', JSON.stringify(newConfig));
+      localStorage.setItem("openai_api_key", newConfig.apiKey);
+      localStorage.setItem("app_config", JSON.stringify(newConfig));
 
       setConfig(newConfig);
       setApiKeyConfigured(true);
@@ -153,10 +161,10 @@ function App() {
       // Check audio device after configuration
       await checkAudioDevice();
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      console.error("Failed to save settings:", error);
       setError({
-        error: 'Failed to save settings',
-        code: 'SETTINGS_SAVE_ERROR',
+        error: "Failed to save settings",
+        code: "SETTINGS_SAVE_ERROR",
         retryable: false,
       });
     }
@@ -194,18 +202,21 @@ function App() {
       // Clear any previous errors
       setError(null);
     } catch (error) {
-      console.error('Audio pipeline error:', error);
+      console.error("Audio pipeline error:", error);
 
       // Only set error if it's not about empty audio (which is expected)
-      if (error instanceof Error && !error.message.includes('No audio data')) {
+      if (error instanceof Error && !error.message.includes("No audio data")) {
         // Determine error code based on error message
-        let errorCode = 'PIPELINE_ERROR';
-        if (error.message.includes('API key')) {
-          errorCode = 'API_ERROR';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorCode = 'NETWORK_ERROR';
-        } else if (error.message.includes('OpenAI')) {
-          errorCode = 'OPENAI_ERROR';
+        let errorCode = "PIPELINE_ERROR";
+        if (error.message.includes("API key")) {
+          errorCode = "API_ERROR";
+        } else if (
+          error.message.includes("network") ||
+          error.message.includes("fetch")
+        ) {
+          errorCode = "NETWORK_ERROR";
+        } else if (error.message.includes("OpenAI")) {
+          errorCode = "OPENAI_ERROR";
         }
 
         setError({
@@ -231,8 +242,8 @@ function App() {
 
     // Retry based on error type
     switch (error.code) {
-      case 'DEVICE_NOT_FOUND':
-      case 'CAPTURE_START_ERROR':
+      case "DEVICE_NOT_FOUND":
+      case "CAPTURE_START_ERROR":
         // Retry audio device check and capture
         await checkAudioDevice();
         if (audioDeviceConnected) {
@@ -240,14 +251,14 @@ function App() {
         }
         break;
 
-      case 'API_ERROR':
-      case 'OPENAI_ERROR':
+      case "API_ERROR":
+      case "OPENAI_ERROR":
         // Show settings to reconfigure API key
         setShowSettings(true);
         break;
 
-      case 'PIPELINE_ERROR':
-      case 'NETWORK_ERROR':
+      case "PIPELINE_ERROR":
+      case "NETWORK_ERROR":
         // Retry audio processing
         await processAudioPipeline();
         break;
@@ -269,11 +280,15 @@ function App() {
   /**
    * Get current status for StatusIndicator
    */
-  const getCurrentStatus = (): 'capturing' | 'processing' | 'idle' | 'error' => {
-    if (error) return 'error';
-    if (isProcessing) return 'processing';
-    if (isCapturing) return 'capturing';
-    return 'idle';
+  const getCurrentStatus = ():
+    | "capturing"
+    | "processing"
+    | "idle"
+    | "error" => {
+    if (error) return "error";
+    if (isProcessing) return "processing";
+    if (isCapturing) return "capturing";
+    return "idle";
   };
 
   // Show settings if API key is not configured
@@ -289,6 +304,8 @@ function App() {
 
   return (
     <div className="app-container">
+      <WindowControls />
+
       {/* Error Display - Requirements: 1.4, 2.4, 3.4 */}
       {error && (
         <ErrorDisplay
@@ -306,14 +323,17 @@ function App() {
       />
 
       <OverlayWindow
-        message={currentResponse || (error?.code === 'OPENAI_ERROR' ? 'Ошибка получения ответа' : '')}
-        visible={overlayVisible || (error?.code === 'OPENAI_ERROR' && !!error)}
+        message={
+          currentResponse ||
+          (error?.code === "OPENAI_ERROR" ? "Ошибка получения ответа" : "")
+        }
+        visible={overlayVisible || (error?.code === "OPENAI_ERROR" && !!error)}
         autoHideDuration={config?.autoHideDuration || 10000}
         onHide={hideOverlay}
-        isError={error?.code === 'OPENAI_ERROR'}
+        isError={error?.code === "OPENAI_ERROR"}
       />
 
-      <div className="app-actions">
+      <div className="app-actions" style={{ marginTop: "30px" }}>
         <button
           onClick={() => setShowSettings(true)}
           className="btn btn-secondary"
