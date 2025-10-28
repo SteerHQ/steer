@@ -44,8 +44,8 @@
       {
         "label": "main",
         "title": "Voice Assistant Overlay",
-        "width": 550,
-        "height": 600,
+        "width": 600,
+        "height": 800,
         "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": true,

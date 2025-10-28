@@ -13,21 +13,44 @@ export const WindowControls: React.FC = () => {
     checkMaximized();
   }, []);
 
-  const handleMinimize = () => {
-    appWindow.minimize();
+  const handleMinimize = async () => {
+    try {
+      await appWindow.minimize();
+      console.log("Window minimized");
+    } catch (error) {
+      console.error("Failed to minimize:", error);
+    }
   };
 
   const handleMaximize = async () => {
-    await appWindow.toggleMaximize();
-    const maximized = await appWindow.isMaximized();
-    setIsMaximized(maximized);
+    try {
+      await appWindow.toggleMaximize();
+      const maximized = await appWindow.isMaximized();
+      setIsMaximized(maximized);
+      console.log("Window maximized:", maximized);
+    } catch (error) {
+      console.error("Failed to maximize:", error);
+    }
   };
 
-  const handleClose = () => {
-    appWindow.close();
+  const handleClose = async () => {
+    try {
+      console.log("Attempting to close window...");
+      await appWindow.close();
+      console.log("Window closed");
+    } catch (error) {
+      console.error("Failed to close:", error);
+      // Попробуем альтернативный метод
+      try {
+        await appWindow.destroy();
+        console.log("Window destroyed");
+      } catch (destroyError) {
+        console.error("Failed to destroy:", destroyError);
+      }
+    }
   };
 
-  const buttonStyle = {
+  const buttonStyle: React.CSSProperties = {
     width: "30px",
     height: "20px",
     border: "none",
@@ -40,6 +63,9 @@ export const WindowControls: React.FC = () => {
     alignItems: "center",
     justifyContent: "center",
     transition: "background-color 0.2s",
+    pointerEvents: "auto",
+    position: "relative",
+    zIndex: 10,
   };
 
   return (
@@ -77,7 +103,14 @@ export const WindowControls: React.FC = () => {
       >
         Voice Assistant
       </div>
-      <div style={{ display: "flex", gap: "6px" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "6px",
+          position: "relative",
+          zIndex: 10,
+        }}
+      >
         <button
           onClick={handleMinimize}
           style={buttonStyle}

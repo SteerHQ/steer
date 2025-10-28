@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import type { AppConfig } from '@steer/types';
-import './settings.css';
+import { useState, useEffect } from "react";
+import type { AppConfig } from "@steer/types";
+import { WindowControls } from "./window-controls";
+import "./settings.css";
 
 interface SettingsProps {
   initialConfig?: Partial<AppConfig>;
@@ -11,13 +12,15 @@ interface SettingsProps {
 export const Settings: React.FC<SettingsProps> = ({
   initialConfig,
   onSave,
-  onCancel
+  onCancel,
 }) => {
-  const [apiKey, setApiKey] = useState(initialConfig?.apiKey || '');
-  const [audioDevice, setAudioDevice] = useState(initialConfig?.audioDevice || 'VB-Cable');
-  const [overlayPosition, setOverlayPosition] = useState<AppConfig['overlayPosition']>(
-    initialConfig?.overlayPosition || 'bottom-right'
+  const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
+  const [audioDevice, setAudioDevice] = useState(
+    initialConfig?.audioDevice || "VB-Cable"
   );
+  const [overlayPosition, setOverlayPosition] = useState<
+    AppConfig["overlayPosition"]
+  >(initialConfig?.overlayPosition || "bottom-right");
   const [autoHideDuration, setAutoHideDuration] = useState(
     initialConfig?.autoHideDuration || 10000
   );
@@ -25,12 +28,12 @@ export const Settings: React.FC<SettingsProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const config: AppConfig = {
       apiKey,
       audioDevice,
       overlayPosition,
-      autoHideDuration
+      autoHideDuration,
     };
 
     onSave(config);
@@ -40,9 +43,10 @@ export const Settings: React.FC<SettingsProps> = ({
 
   return (
     <div className="settings-container">
+      <WindowControls />
       <div className="settings-card">
         <h2 className="settings-title">Настройки</h2>
-        
+
         <form onSubmit={handleSubmit} className="settings-form">
           <div className="form-group">
             <label htmlFor="apiKey" className="form-label">
@@ -51,7 +55,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <div className="api-key-input-wrapper">
               <input
                 id="apiKey"
-                type={showApiKey ? 'text' : 'password'}
+                type={showApiKey ? "text" : "password"}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="form-input"
@@ -62,13 +66,20 @@ export const Settings: React.FC<SettingsProps> = ({
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
                 className="toggle-visibility-btn"
-                aria-label={showApiKey ? 'Скрыть ключ' : 'Показать ключ'}
+                aria-label={showApiKey ? "Скрыть ключ" : "Показать ключ"}
               >
-                {showApiKey ? '👁️' : '👁️‍🗨️'}
+                {showApiKey ? "👁️" : "👁️‍🗨️"}
               </button>
             </div>
             <small className="form-hint">
-              Получите ключ на <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">platform.openai.com</a>
+              Получите ключ на{" "}
+              <a
+                href="https://platform.openai.com/api-keys"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                platform.openai.com
+              </a>
             </small>
           </div>
 
@@ -97,7 +108,11 @@ export const Settings: React.FC<SettingsProps> = ({
             <select
               id="overlayPosition"
               value={overlayPosition}
-              onChange={(e) => setOverlayPosition(e.target.value as AppConfig['overlayPosition'])}
+              onChange={(e) =>
+                setOverlayPosition(
+                  e.target.value as AppConfig["overlayPosition"]
+                )
+              }
               className="form-select"
             >
               <option value="bottom-right">Правый нижний угол</option>
@@ -118,7 +133,9 @@ export const Settings: React.FC<SettingsProps> = ({
               max="60"
               step="1"
               value={autoHideDuration / 1000}
-              onChange={(e) => setAutoHideDuration(Number(e.target.value) * 1000)}
+              onChange={(e) =>
+                setAutoHideDuration(Number(e.target.value) * 1000)
+              }
               className="form-input"
             />
             <small className="form-hint">
