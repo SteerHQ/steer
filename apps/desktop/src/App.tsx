@@ -333,7 +333,7 @@ function App() {
         isError={error?.code === "OPENAI_ERROR"}
       />
 
-      <div className="app-actions" style={{ marginTop: "30px" }}>
+      <div className="app-actions">
         <button
           onClick={() => setShowSettings(true)}
           className="btn btn-secondary"

@@ -44,15 +44,17 @@
       {
         "label": "main",
         "title": "Voice Assistant Overlay",
-        "width": 400,
-        "height": 200,
-        "resizable": false,
+        "width": 550,
+        "height": 600,
+        "resizable": true,
         "fullscreen": false,
         "alwaysOnTop": true,
         "decorations": false,
         "transparent": true,
-        "skipTaskbar": true,
-        "visible": true
+        "skipTaskbar": false,
+        "visible": true,
+        "minWidth": 400,
+        "minHeight": 450
       }
     ],
     "security": {
