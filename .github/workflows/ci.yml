@@ -10,7 +10,7 @@ jobs:
   lint-and-typecheck:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
@@ -30,7 +30,7 @@ jobs:
     runs-on: windows-latest
     needs: lint-and-typecheck
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
