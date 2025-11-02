@@ -1,2 +1,2 @@
-export { useDebounce } from "./useDebounce";
-export { useLocalStorage } from "./useLocalStorage";
+export { useDebounce } from "./use-debounce";
+export { useLocalStorage } from "./use-local-storage";
