@@ -81,13 +81,20 @@ export class OpenAIService {
    * Generate response using OpenAI GPT-4o API with Vercel AI SDK
    * Requirements: 3.1, 3.2, 3.5
    */
-  async generateResponse(transcript: string): Promise<string> {
+  async generateResponse(
+    transcript: string,
+    mode: 'general' | 'interview' | 'algorithm' | 'cheatsheet' = 'general',
+    context?: Array<{ question: string; answer: string }>
+  ): Promise<string> {
     return this.withRetry(async () => {
       try {
+        const systemPrompt = this.getSystemPrompt(mode);
+        const enhancedPrompt = this.buildPrompt(transcript, mode, context);
+
         const { text } = await generateText({
-          model: this.openai("gpt-5"),
-          system: "Отвечай коротко, по-русски, давай технический ответ",
-          prompt: transcript,
+          model: this.openai("gpt-4o"),
+          system: systemPrompt,
+          prompt: enhancedPrompt,
           maxRetries: 0, // We handle retries ourselves
         });
 
@@ -108,6 +115,65 @@ export class OpenAIService {
         );
       }
     });
+  }
+
+  /**
+   * Get system prompt based on mode
+   */
+  private getSystemPrompt(mode: string): string {
+    switch (mode) {
+      case 'interview':
+        return `Ты - эксперт-помощник на техническом собеседовании. 
+Твоя задача:
+- Давать краткие, точные технические ответы (2-3 предложения)
+- Фокусироваться на ключевых концепциях и определениях
+- Использовать простой, понятный язык
+- Избегать длинных объяснений
+- Отвечать ТОЛЬКО по-русски
+- Если вопрос про алгоритм - дать временную сложность и основную идею`;
+
+      case 'algorithm':
+        return `Ты - эксперт по алгоритмам и структурам данных.
+Твоя задача:
+- Объяснить подход к решению задачи (1-2 предложения)
+- Указать временную и пространственную сложность
+- Назвать ключевую структуру данных или алгоритм
+- Дать краткий псевдокод если нужно (максимум 5 строк)
+- Отвечать ТОЛЬКО по-русски`;
+
+      case 'cheatsheet':
+        return `Ты - быстрая шпаргалка для разработчика.
+Твоя задача:
+- Дать максимально краткий ответ (1 предложение или список)
+- Только факты, без объяснений
+- Синтаксис, определения, формулы
+- Отвечать ТОЛЬКО по-русски`;
+
+      default:
+        return "Отвечай коротко, по-русски, давай технический ответ";
+    }
+  }
+
+  /**
+   * Build enhanced prompt with context
+   */
+  private buildPrompt(
+    transcript: string,
+    mode: string,
+    context?: Array<{ question: string; answer: string }>
+  ): string {
+    let prompt = transcript;
+
+    if (context && context.length > 0 && mode === 'interview') {
+      const recentContext = context.slice(-3); // Last 3 Q&A pairs
+      const contextStr = recentContext
+        .map((item) => `Q: ${item.question}\nA: ${item.answer}`)
+        .join('\n\n');
+      
+      prompt = `Контекст предыдущих вопросов:\n${contextStr}\n\nТекущий вопрос: ${transcript}`;
+    }
+
+    return prompt;
   }
 
   /**

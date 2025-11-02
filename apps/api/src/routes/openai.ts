@@ -67,15 +67,28 @@ openai.post('/generate', async (c) => {
       throw new ValidationError('Transcript must be a non-empty string');
     }
 
+    // Validate mode if provided
+    const validModes = ['general', 'interview', 'algorithm', 'cheatsheet'];
+    const mode = body.mode || 'general';
+    
+    if (!validModes.includes(mode)) {
+      throw new ValidationError(`Invalid mode. Must be one of: ${validModes.join(', ')}`);
+    }
+
     // Create OpenAI service instance
     const openaiService = new OpenAIService(apiKey);
 
-    // Generate response
-    const response = await openaiService.generateResponse(body.transcript);
+    // Generate response with mode and context
+    const response = await openaiService.generateResponse(
+      body.transcript,
+      mode,
+      body.context
+    );
 
     return c.json({
       success: true,
       response,
+      mode,
     });
 
   } catch (error) {

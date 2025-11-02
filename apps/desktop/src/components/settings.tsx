@@ -55,6 +55,12 @@ export const Settings: React.FC<SettingsProps> = ({
       audioDevice,
       overlayPosition,
       autoHideDuration,
+      defaultMode: 'interview',
+      interviewSettings: {
+        saveHistory: true,
+        maxHistoryItems: 10,
+        showConfidence: false,
+      },
     };
 
     onSave(config);

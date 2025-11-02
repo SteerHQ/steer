@@ -8,13 +8,16 @@ import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
+import { InterviewMode } from "./components/interview-mode";
 import { AudioPipeline } from "./services/audio-pipeline";
+import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
+  const interviewServiceRef = useRef<InterviewService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
 
   // Access state from the store
@@ -27,6 +30,8 @@ function App() {
     audioDeviceConnected,
     error,
     messages,
+    mode,
+    interviewContext,
     setApiKeyConfigured,
     setAudioDeviceConnected,
     setError,
@@ -36,6 +41,10 @@ function App() {
     setTranscript,
     setResponse,
     clearMessages,
+    setMode,
+    addToInterviewContext,
+    clearInterviewContext,
+    getInterviewContext,
   } = useAppStore();
 
   // Initialize application on mount
@@ -60,6 +69,7 @@ function App() {
     if (isCapturing && config?.apiKey && !processingIntervalRef.current) {
       // Initialize audio pipeline
       audioPipelineRef.current = new AudioPipeline(config.apiKey);
+      interviewServiceRef.current = new InterviewService();
 
       // Poll for audio data every 5 seconds
       processingIntervalRef.current = window.setInterval(() => {
@@ -209,23 +219,54 @@ function App() {
   };
 
   /**
-   * Process audio pipeline
+   * Process audio pipeline with interview mode support
    * Requirements: 1.5, 2.1, 2.3, 3.1, 3.3, 4.3
    */
   const processAudioPipeline = async () => {
     // Skip if already processing
-    if (isProcessing || !audioPipelineRef.current) {
+    if (isProcessing || !audioPipelineRef.current || !interviewServiceRef.current || !config?.apiKey) {
       return;
     }
 
     try {
       setProcessing(true);
 
-      // Run the audio pipeline
-      const response = await audioPipelineRef.current.processAudio();
+      // Get audio data from Tauri
+      const audioBuffer = await invoke<number[]>("get_audio_data");
+      
+      if (!audioBuffer || audioBuffer.length === 0) {
+        return; // No audio data, skip silently
+      }
 
-      // Set transcript and response in store
+      const audioData = new Uint8Array(audioBuffer);
+
+      // Transcribe audio
+      const transcript = await interviewServiceRef.current.transcribeAudio(
+        audioData,
+        config.apiKey
+      );
+
+      // Set transcript in store
+      setTranscript(transcript);
+
+      // Get context for interview mode
+      const context = mode === 'interview' ? getInterviewContext() : undefined;
+
+      // Generate response with mode and context
+      const response = await interviewServiceRef.current.generateResponse({
+        transcript,
+        mode,
+        context,
+        apiKey: config.apiKey,
+      });
+
+      // Set response in store
       setResponse(response);
+
+      // Add to interview context if in interview mode
+      if (mode === 'interview') {
+        addToInterviewContext(transcript, response);
+      }
 
       // Clear any previous errors
       setError(null);
@@ -351,6 +392,15 @@ function App() {
       />
 
       <div style={{ marginTop: "20px" }}>
+        <InterviewMode
+          currentMode={mode}
+          onModeChange={setMode}
+          onClearHistory={clearInterviewContext}
+          historyCount={interviewContext?.questions.length || 0}
+        />
+      </div>
+
+      <div style={{ marginTop: "12px" }}>
         <AudioVisualizer isActive={isCapturing} />
       </div>
 

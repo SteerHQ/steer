@@ -1,5 +1,7 @@
 import { ErrorResponse } from './api';
 
+export type AssistantMode = 'general' | 'interview' | 'algorithm' | 'cheatsheet';
+
 export interface AppState {
   isCapturing: boolean;
   isProcessing: boolean;
@@ -9,6 +11,18 @@ export interface AppState {
   apiKeyConfigured: boolean;
   audioDeviceConnected: boolean;
   error: ErrorResponse | null;
+  mode: AssistantMode;
+  interviewContext: InterviewContext | null;
+}
+
+export interface InterviewContext {
+  questions: Array<{
+    question: string;
+    answer: string;
+    timestamp: number;
+  }>;
+  startTime: number;
+  topic?: string;
 }
 
 export interface AppConfig {
@@ -16,4 +30,10 @@ export interface AppConfig {
   audioDevice: string;
   overlayPosition: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   autoHideDuration: number;
+  defaultMode: AssistantMode;
+  interviewSettings: {
+    saveHistory: boolean;
+    maxHistoryItems: number;
+    showConfidence: boolean;
+  };
 }

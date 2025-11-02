@@ -20,3 +20,12 @@ export interface ErrorResponse {
   code: string;
   retryable: boolean;
 }
+
+export interface GenerateRequest {
+  transcript: string;
+  mode?: 'general' | 'interview' | 'algorithm' | 'cheatsheet';
+  context?: Array<{
+    question: string;
+    answer: string;
+  }>;
+}

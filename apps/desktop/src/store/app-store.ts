@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { AppState } from "@steer/types";
+import { AppState, AssistantMode, InterviewContext } from "@steer/types";
 import { ErrorResponse } from "@steer/types";
 
 export interface ChatMessage {
@@ -28,6 +28,12 @@ export interface AppStore extends AppState {
   setAudioDeviceConnected: (connected: boolean) => void;
   clearTranscriptAndResponse: () => void;
   reset: () => void;
+  
+  // Interview mode actions
+  setMode: (mode: AssistantMode) => void;
+  addToInterviewContext: (question: string, answer: string) => void;
+  clearInterviewContext: () => void;
+  getInterviewContext: () => Array<{ question: string; answer: string }>;
 }
 
 const initialState: AppState = {
@@ -39,6 +45,8 @@ const initialState: AppState = {
   apiKeyConfigured: false,
   audioDeviceConnected: false,
   error: null,
+  mode: 'general',
+  interviewContext: null,
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -158,4 +166,76 @@ export const useAppStore = create<AppStore>((set) => ({
 
   // Reset to initial state
   reset: () => set(initialState),
+
+  // Set assistant mode
+  setMode: (mode: AssistantMode) =>
+    set((state) => {
+      // Clear interview context when switching away from interview mode
+      if (mode !== 'interview' && state.interviewContext) {
+        return {
+          mode,
+          interviewContext: null,
+        };
+      }
+      // Initialize interview context when switching to interview mode
+      if (mode === 'interview' && !state.interviewContext) {
+        return {
+          mode,
+          interviewContext: {
+            questions: [],
+            startTime: Date.now(),
+          },
+        };
+      }
+      return { mode };
+    }),
+
+  // Add question-answer pair to interview context
+  addToInterviewContext: (question: string, answer: string) =>
+    set((state) => {
+      if (state.mode !== 'interview') return state;
+
+      const context = state.interviewContext || {
+        questions: [],
+        startTime: Date.now(),
+      };
+
+      const newQuestion = {
+        question,
+        answer,
+        timestamp: Date.now(),
+      };
+
+      // Keep only last 10 Q&A pairs to avoid context overflow
+      const questions = [...context.questions, newQuestion].slice(-10);
+
+      return {
+        interviewContext: {
+          ...context,
+          questions,
+        },
+      };
+    }),
+
+  // Clear interview context
+  clearInterviewContext: () =>
+    set((state) => ({
+      interviewContext: state.mode === 'interview'
+        ? {
+            questions: [],
+            startTime: Date.now(),
+          }
+        : null,
+    })),
+
+  // Get interview context for API calls
+  getInterviewContext: (): Array<{ question: string; answer: string }> => {
+    const state = useAppStore.getState() as AppStore;
+    if (!state.interviewContext) return [];
+    
+    return state.interviewContext.questions.map((q: { question: string; answer: string; timestamp: number }) => ({
+      question: q.question,
+      answer: q.answer,
+    }));
+  },
 }));
