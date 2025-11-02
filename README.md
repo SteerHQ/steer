@@ -2,6 +2,11 @@
 
 Windows-утилита для захвата системного аудио, распознавания русской речи и предоставления кратких технических ответов через overlay-интерфейс.
 
+[![CI](https://github.com/yourusername/voice-assistant-overlay/workflows/CI/badge.svg)](https://github.com/yourusername/voice-assistant-overlay/actions)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Tauri](https://img.shields.io/badge/Tauri-2.9-orange.svg)](https://tauri.app/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
 ## Структура проекта
 
 ```
@@ -59,3 +64,35 @@ bun run tauri:build
 - Windows 10 (1809+) или Windows 11
 - VB-Cable (виртуальное аудиоустройство)
 - OpenAI API ключ
+- Bun.js 1.3.1+
+- Rust (для сборки Tauri)
+
+## Особенности
+
+✨ **Современный стек технологий**
+
+- Monorepo с Turborepo для эффективной сборки
+- TypeScript для типобезопасности
+- React 19 с хуками для UI
+- Zustand для управления состоянием
+
+🔧 **Качество кода**
+
+- ESLint и Prettier для единообразия кода
+- Vitest для unit-тестирования
+- CI/CD с GitHub Actions
+- Строгая типизация TypeScript
+
+⚡ **Производительность**
+
+- Оптимизированная сборка с Vite
+- Lazy loading компонентов
+- Мемоизация и debounce
+- Минимальный размер бандла
+
+🛡️ **Надежность**
+
+- Централизованная обработка ошибок
+- Структурированное логирование
+- Автоматические retry механизмы
+- Graceful degradation
