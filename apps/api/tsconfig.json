@@ -3,13 +3,12 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "types": ["bun", "node"]
+    "types": ["bun", "node"],
+    "paths": {
+      "@steer/types": ["../../packages/types/src/index.ts"],
+      "@steer/types/*": ["../../packages/types/src/*"]
+    }
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"],
-  "references": [
-    {
-      "path": "../../packages/types"
-    }
-  ]
+  "exclude": ["node_modules", "dist"]
 }

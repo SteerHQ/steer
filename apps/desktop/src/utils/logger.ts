@@ -1,4 +1,5 @@
-import type { Logger, LogLevel, LogEntry } from "@steer/types";
+import { LogLevel } from "@steer/types";
+import type { Logger, LogEntry } from "@steer/types";
 
 /**
  * Простая реализация логгера для desktop приложения
@@ -10,7 +11,7 @@ class ConsoleLogger implements Logger {
     level: LogLevel,
     message: string,
     metadata?: Record<string, unknown>,
-    error?: Error,
+    error?: Error
   ) {
     const entry: LogEntry = {
       level,
@@ -24,39 +25,39 @@ class ConsoleLogger implements Logger {
     const metaStr = metadata ? ` ${JSON.stringify(metadata)}` : "";
 
     switch (level) {
-      case "debug":
+      case LogLevel.DEBUG:
         console.debug(`${prefix} ${message}${metaStr}`);
         break;
-      case "info":
+      case LogLevel.INFO:
         console.info(`${prefix} ${message}${metaStr}`);
         break;
-      case "warn":
+      case LogLevel.WARN:
         console.warn(`${prefix} ${message}${metaStr}`);
         break;
-      case "error":
+      case LogLevel.ERROR:
         console.error(`${prefix} ${message}${metaStr}`, error);
         break;
     }
   }
 
   debug(message: string, metadata?: Record<string, unknown>): void {
-    this.log("debug", message, metadata);
+    this.log(LogLevel.DEBUG, message, metadata);
   }
 
   info(message: string, metadata?: Record<string, unknown>): void {
-    this.log("info", message, metadata);
+    this.log(LogLevel.INFO, message, metadata);
   }
 
   warn(message: string, metadata?: Record<string, unknown>): void {
-    this.log("warn", message, metadata);
+    this.log(LogLevel.WARN, message, metadata);
   }
 
   error(
     message: string,
     error?: Error,
-    metadata?: Record<string, unknown>,
+    metadata?: Record<string, unknown>
   ): void {
-    this.log("error", message, metadata, error);
+    this.log(LogLevel.ERROR, message, metadata, error);
   }
 }
 

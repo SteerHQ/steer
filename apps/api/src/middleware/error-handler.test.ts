@@ -12,7 +12,7 @@ describe("errorHandler", () => {
     });
 
     const res = await app.request("/test");
-    const json = await res.json();
+    const json = (await res.json()) as { error: string; code: string };
 
     expect(res.status).toBe(500);
     expect(json).toHaveProperty("error");

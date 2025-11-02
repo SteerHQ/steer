@@ -15,7 +15,9 @@
     "build:optimized": "bun run build && bun run tauri:build && bun run check-size"
   },
   "dependencies": {
+    "@steer/config": "workspace:*",
     "@steer/types": "workspace:*",
+    "@steer/ui": "workspace:*",
     "@tauri-apps/api": "^2.9.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
