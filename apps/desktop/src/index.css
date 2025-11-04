@@ -65,3 +65,29 @@ body {
 .btn-secondary:hover {
   background: #e0e0e0;
 }
+
+.btn-secondary:disabled {
+  background: #f5f5f5;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.btn-success {
+  background: #28a745;
+  color: white;
+  font-weight: 600;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-warning {
+  background: #ffc107;
+  color: #856404;
+  font-weight: 600;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+}

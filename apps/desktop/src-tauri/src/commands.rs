@@ -137,6 +137,25 @@ pub async fn get_capture_status(state: State<'_, AudioState>) -> Result<bool, St
     Ok(capture_guard.is_some())
 }
 
+/// Get buffer size without clearing it (for monitoring)
+/// 
+/// # Arguments
+/// * `state` - Tauri state containing AudioCapture instance
+/// 
+/// # Returns
+/// * `Result<usize, String>` - Buffer size in bytes
+#[tauri::command]
+pub async fn get_buffer_size(state: State<'_, AudioState>) -> Result<usize, String> {
+    let capture_guard = state.capture.lock().unwrap();
+    
+    if let Some(ref capture) = *capture_guard {
+        let buffer = capture.get_buffer();
+        Ok(buffer.len())
+    } else {
+        Ok(0)
+    }
+}
+
 /// Get current audio level (volume)
 /// 
 /// # Arguments

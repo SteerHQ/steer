@@ -9,12 +9,14 @@ import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
+import { AudioDebug } from "./components/audio-debug";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
@@ -223,8 +225,11 @@ function App() {
    * Requirements: 1.5, 2.1, 2.3, 3.1, 3.3, 4.3
    */
   const processAudioPipeline = async () => {
-    // Skip if already processing
-    if (isProcessing || !audioPipelineRef.current || !interviewServiceRef.current || !config?.apiKey) {
+    // Проверяем, включен ли анализ разговоров
+    const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
+    
+    // Skip if already processing or analysis is disabled
+    if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current || !config?.apiKey) {
       return;
     }
 
@@ -371,6 +376,23 @@ function App() {
     );
   }
 
+  // Show debug component if requested
+  if (showDebug) {
+    return (
+      <div className="app-container">
+        <WindowControls />
+        <button
+          onClick={() => setShowDebug(false)}
+          className="btn btn-secondary"
+          style={{ marginBottom: "20px" }}
+        >
+          ← Назад к приложению
+        </button>
+        <AudioDebug />
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       <WindowControls />
@@ -421,6 +443,27 @@ function App() {
 
       <div className="app-actions">
         <button
+          onClick={() => {
+            const current = localStorage.getItem("analysis_enabled") !== "false";
+            localStorage.setItem("analysis_enabled", (!current).toString());
+            window.location.reload();
+          }}
+          className={`btn ${
+            localStorage.getItem("analysis_enabled") !== "false"
+              ? "btn-success"
+              : "btn-warning"
+          }`}
+          title={
+            localStorage.getItem("analysis_enabled") !== "false"
+              ? "Анализ включен. Нажмите, чтобы отключить отправку в ChatGPT"
+              : "Анализ отключен. Нажмите, чтобы включить отправку в ChatGPT"
+          }
+        >
+          {localStorage.getItem("analysis_enabled") !== "false"
+            ? "🤖 Анализ ВКЛ"
+            : "⏸️ Анализ ВЫКЛ"}
+        </button>
+        <button
           onClick={async () => {
             try {
               const buffer = await invoke<number[]>("get_audio_data");
@@ -458,6 +501,13 @@ function App() {
           }
         >
           🗑️ Очистить чат
+        </button>
+        <button
+          onClick={() => setShowDebug(true)}
+          className="btn btn-secondary"
+          title="Открыть компонент отладки аудио"
+        >
+          🔧 Отладка
         </button>
         <button
           onClick={() => setShowSettings(true)}
