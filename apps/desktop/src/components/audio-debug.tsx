@@ -52,7 +52,10 @@ export function AudioDebug() {
       const cleanDeviceName = selectedDevice
         .replace(" (Input)", "")
         .replace(" (Output)", "")
-        .replace(" (Output/Loopback)", "");
+        .replace(" (Output/Loopback)", "")
+        .trim();
+      
+      addLog(`Очищенное имя устройства: ${cleanDeviceName}`);
       
       await invoke("start_audio_capture", { deviceName: cleanDeviceName });
       setIsCapturing(true);
@@ -62,6 +65,15 @@ export function AudioDebug() {
       const errorMsg = `Ошибка запуска захвата: ${err}`;
       addLog(errorMsg);
       setError(errorMsg);
+      
+      // Если устройство не найдено, показать доступные устройства
+      if (String(err).includes("not found")) {
+        addLog("Попробуйте выбрать другое устройство из списка");
+        addLog("Доступные устройства:");
+        devices.forEach((device) => {
+          addLog(`  - ${device}`);
+        });
+      }
     }
   };
 
@@ -224,6 +236,11 @@ export function AudioDebug() {
 
       <div className="debug-section">
         <h3>Устройства</h3>
+        
+        <div className="device-warning">
+          ⚠️ <strong>ВАЖНО:</strong> Для захвата системного звука выбирайте устройство с <strong>(Output/Loopback)</strong>
+        </div>
+        
         <button onClick={loadDevices} className="debug-button">
           🔄 Обновить список
         </button>
@@ -235,16 +252,44 @@ export function AudioDebug() {
           disabled={isCapturing}
         >
           <option value="">Выберите устройство</option>
-          {devices.map((device) => (
-            <option key={device} value={device}>
-              {device}
-            </option>
-          ))}
+          {devices.map((device) => {
+            const isLoopback = device.includes("(Output/Loopback)");
+            const isInput = device.includes("(Input)") && !isLoopback;
+            
+            return (
+              <option 
+                key={device} 
+                value={device}
+                style={{
+                  fontWeight: isLoopback ? "bold" : "normal",
+                  color: isLoopback ? "#28a745" : isInput ? "#dc3545" : "#333"
+                }}
+              >
+                {isLoopback ? "✅ " : isInput ? "❌ " : ""}
+                {device}
+              </option>
+            );
+          })}
         </select>
         
         <div className="debug-info">
           Найдено устройств: {devices.length}
         </div>
+        
+        {selectedDevice && selectedDevice.includes("(Input)") && !selectedDevice.includes("(Output/Loopback)") && (
+          <div className="device-error">
+            ❌ <strong>НЕПРАВИЛЬНОЕ УСТРОЙСТВО!</strong><br/>
+            Вы выбрали Input устройство - оно НЕ захватывает системный звук.<br/>
+            Выберите устройство с <strong>(Output/Loopback)</strong>
+          </div>
+        )}
+        
+        {selectedDevice && selectedDevice.includes("(Output/Loopback)") && (
+          <div className="device-success">
+            ✅ <strong>ПРАВИЛЬНОЕ УСТРОЙСТВО!</strong><br/>
+            Это устройство поддерживает захват системного звука.
+          </div>
+        )}
       </div>
 
       <div className="debug-section">

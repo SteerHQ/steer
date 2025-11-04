@@ -249,3 +249,40 @@
   color: #856404;
   font-weight: 500;
 }
+
+.device-warning {
+  background: #fff3cd;
+  border: 2px solid #ffc107;
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+  color: #856404;
+  font-size: 14px;
+}
+
+.device-error {
+  background: #f8d7da;
+  border: 2px solid #dc3545;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #721c24;
+  font-size: 14px;
+  animation: shake 0.5s;
+}
+
+.device-success {
+  background: #d4edda;
+  border: 2px solid #28a745;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #155724;
+  font-size: 14px;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}

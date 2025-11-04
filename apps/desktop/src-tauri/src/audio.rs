@@ -42,11 +42,15 @@ impl AudioCapture {
         // List all available devices for debugging
         tracing::info!("Searching for audio device: {}", device_name);
         
-        // Clean device name (remove suffixes like " (Input)" or " (Output)")
+        // Clean device name (remove suffixes like " (Input)", " (Output)", " (Output/Loopback)")
         let clean_device_name = device_name
             .replace(" (Input)", "")
             .replace(" (Output)", "")
-            .replace(" (Output/Loopback)", "");
+            .replace(" (Output/Loopback)", "")
+            .trim()
+            .to_string();
+        
+        tracing::info!("Cleaned device name: {}", clean_device_name);
         
         let mut available_devices = Vec::new();
         
@@ -73,12 +77,24 @@ impl AudioCapture {
             }
         }
         
-        // Find the device by exact name match first, then try partial match
+        // Find the device by multiple matching strategies
         let device = available_devices
             .iter()
-            .find(|(name, _)| name == &clean_device_name || name == device_name)
+            // Strategy 1: Exact match with original name
+            .find(|(name, _)| name == device_name)
             .or_else(|| {
-                // If exact match not found, try case-insensitive partial match
+                // Strategy 2: Exact match with cleaned name
+                available_devices.iter().find(|(name, _)| name == &clean_device_name)
+            })
+            .or_else(|| {
+                // Strategy 3: Case-insensitive exact match
+                let search_lower = clean_device_name.to_lowercase();
+                available_devices.iter().find(|(name, _)| {
+                    name.to_lowercase() == search_lower
+                })
+            })
+            .or_else(|| {
+                // Strategy 4: Partial match (contains)
                 let search_lower = clean_device_name.to_lowercase();
                 available_devices.iter().find(|(name, _)| {
                     let name_lower = name.to_lowercase();
