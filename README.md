@@ -53,6 +53,7 @@ bun install
 - 📖 **Подробное сравнение:** [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - все варианты
 
 **Рекомендуем:**
+
 1. Попробуйте **Stereo Mix** (встроен в Windows, не требует установки)
 2. Если нет Stereo Mix - установите **VoiceMeeter** (бесплатный и стабильный)
 
@@ -148,7 +149,6 @@ bun run tauri:build
 - Автоматические retry механизмы
 - Graceful degradation
 
-
 ## 📚 Документация
 
 Полный список всей документации проекта: **[DOCS-INDEX.md](DOCS-INDEX.md)**
@@ -156,21 +156,27 @@ bun run tauri:build
 ### Быстрые ссылки
 
 #### Настройка аудио
+
+- [АУДИО-ДОКУМЕНТАЦИЯ.md](apps/desktop/АУДИО-ДОКУМЕНТАЦИЯ.md) - **Полный индекс документации**
+- [МИКРОФОН-VB-CABLE.md](apps/desktop/МИКРОФОН-VB-CABLE.md) - Запись с микрофона
+- [СХЕМА-VB-CABLE.md](apps/desktop/СХЕМА-VB-CABLE.md) - Визуальные схемы
 - [AUDIO-QUICK-FIX.md](apps/desktop/AUDIO-QUICK-FIX.md) - Решение за 2 минуты
 - [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - Сравнение вариантов
-- [AUDIO-CHEATSHEET.md](apps/desktop/AUDIO-CHEATSHEET.md) - Шпаргалка
 
 #### Начало работы
+
 - [LOCKEDIN-QUICKSTART.md](LOCKEDIN-QUICKSTART.md) - Быстрый старт
 - [docs/quick-start-interview.md](docs/quick-start-interview.md) - Для собеседований
 - [docs/interview-modes.md](docs/interview-modes.md) - Режимы работы
 
 #### Отладка
+
 - [apps/desktop/HOW-TO-DEBUG.md](apps/desktop/HOW-TO-DEBUG.md) - Пошаговая отладка
 - [apps/desktop/README-DEBUG.md](apps/desktop/README-DEBUG.md) - Компонент отладки
 - [docs/audio-debugging.md](docs/audio-debugging.md) - Техническая документация
 
 #### Разработка
+
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Как внести вклад
 - [LOCKEDIN-FEATURES.md](LOCKEDIN-FEATURES.md) - Roadmap
 - [apps/desktop/CHEATSHEET.md](apps/desktop/CHEATSHEET.md) - Шпаргалка разработчика

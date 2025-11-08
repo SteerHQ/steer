@@ -47,16 +47,16 @@ export function AudioDebug() {
 
     try {
       addLog(`Запуск захвата с устройства: ${selectedDevice}`);
-      
+
       // Очистить имя устройства от суффиксов
       const cleanDeviceName = selectedDevice
         .replace(" (Input)", "")
         .replace(" (Output)", "")
         .replace(" (Output/Loopback)", "")
         .trim();
-      
+
       addLog(`Очищенное имя устройства: ${cleanDeviceName}`);
-      
+
       await invoke("start_audio_capture", { deviceName: cleanDeviceName });
       setIsCapturing(true);
       addLog("Захват запущен успешно");
@@ -65,7 +65,7 @@ export function AudioDebug() {
       const errorMsg = `Ошибка запуска захвата: ${err}`;
       addLog(errorMsg);
       setError(errorMsg);
-      
+
       // Если устройство не найдено, показать доступные устройства
       if (String(err).includes("not found")) {
         addLog("Попробуйте выбрать другое устройство из списка");
@@ -98,12 +98,14 @@ export function AudioDebug() {
     try {
       const buffer = await invoke<number[]>("get_audio_data");
       setBufferSize(buffer.length);
-      addLog(`Размер буфера: ${buffer.length} байт (${(buffer.length / 1024).toFixed(2)} KB)`);
-      
+      addLog(
+        `Размер буфера: ${buffer.length} байт (${(buffer.length / 1024).toFixed(2)} KB)`
+      );
+
       if (buffer.length > 0) {
         addLog(`Первые 10 байт: [${buffer.slice(0, 10).join(", ")}]`);
       }
-      
+
       return buffer;
     } catch (err) {
       addLog(`Ошибка получения буфера: ${err}`);
@@ -116,7 +118,7 @@ export function AudioDebug() {
     try {
       addLog("Получение аудио данных...");
       const buffer = await getBufferData();
-      
+
       if (buffer.length === 0) {
         addLog("Буфер пуст, нечего сохранять");
         return;
@@ -127,7 +129,7 @@ export function AudioDebug() {
         buffer,
         sampleRate: 48000,
       });
-      
+
       addLog(`Аудио сохранено: ${path}`);
       setError(null);
     } catch (err) {
@@ -145,7 +147,7 @@ export function AudioDebug() {
       try {
         const level = await invoke<number>("get_audio_level");
         setAudioLevel(level);
-        
+
         // Получаем размер буфера без очистки
         const status = await invoke<{ size: number }>("get_buffer_size");
         setBufferSize(status.size);
@@ -192,7 +194,7 @@ export function AudioDebug() {
     <div className="audio-debug">
       <div className="debug-header">
         <h2>🔧 Отладка аудио записи</h2>
-        
+
         <button
           onClick={toggleAnalysis}
           className={`analysis-toggle ${analysisEnabled ? "enabled" : "disabled"}`}
@@ -224,27 +226,33 @@ export function AudioDebug() {
 
       {!analysisEnabled && (
         <div className="debug-warning">
-          <strong>⚠️ Режим тестирования:</strong> Аудио записывается, но НЕ отправляется в ChatGPT
+          <strong>⚠️ Режим тестирования:</strong> Аудио записывается, но НЕ
+          отправляется в ChatGPT
         </div>
       )}
 
       {analysisEnabled && (
         <div className="debug-success">
-          <strong>✅ Рабочий режим:</strong> Аудио записывается и анализируется через ChatGPT
+          <strong>✅ Рабочий режим:</strong> Аудио записывается и анализируется
+          через ChatGPT
         </div>
       )}
 
       <div className="debug-section">
         <h3>Устройства</h3>
-        
+
         <div className="device-warning">
-          ⚠️ <strong>ВАЖНО:</strong> Для захвата системного звука выбирайте устройство с <strong>(Output/Loopback)</strong>
+          ⚠️ <strong>ВАЖНО:</strong>
+          <br />• Для захвата <strong>системного звука</strong> (музыка, видео)
+          → <strong>(Output/Loopback)</strong>
+          <br />• Для захвата <strong>с микрофона</strong> (ваш голос) →{" "}
+          <strong>(Input)</strong>
         </div>
-        
+
         <button onClick={loadDevices} className="debug-button">
           🔄 Обновить список
         </button>
-        
+
         <select
           value={selectedDevice}
           onChange={(e) => setSelectedDevice(e.target.value)}
@@ -255,14 +263,14 @@ export function AudioDebug() {
           {devices.map((device) => {
             const isLoopback = device.includes("(Output/Loopback)");
             const isInput = device.includes("(Input)") && !isLoopback;
-            
+
             return (
-              <option 
-                key={device} 
+              <option
+                key={device}
                 value={device}
                 style={{
                   fontWeight: isLoopback ? "bold" : "normal",
-                  color: isLoopback ? "#28a745" : isInput ? "#dc3545" : "#333"
+                  color: isLoopback ? "#28a745" : isInput ? "#dc3545" : "#333",
                 }}
               >
                 {isLoopback ? "✅ " : isInput ? "❌ " : ""}
@@ -271,23 +279,30 @@ export function AudioDebug() {
             );
           })}
         </select>
-        
-        <div className="debug-info">
-          Найдено устройств: {devices.length}
-        </div>
-        
-        {selectedDevice && selectedDevice.includes("(Input)") && !selectedDevice.includes("(Output/Loopback)") && (
-          <div className="device-error">
-            ❌ <strong>НЕПРАВИЛЬНОЕ УСТРОЙСТВО!</strong><br/>
-            Вы выбрали Input устройство - оно НЕ захватывает системный звук.<br/>
-            Выберите устройство с <strong>(Output/Loopback)</strong>
-          </div>
-        )}
-        
+
+        <div className="debug-info">Найдено устройств: {devices.length}</div>
+
+        {selectedDevice &&
+          selectedDevice.includes("(Input)") &&
+          !selectedDevice.includes("(Output/Loopback)") && (
+            <div className="device-info-box">
+              🎤 <strong>УСТРОЙСТВО ДЛЯ МИКРОФОНА</strong>
+              <br />
+              Это устройство захватывает звук, который{" "}
+              <strong>записывается</strong> в VB Cable.
+              <br />
+              Используйте для записи голоса с микрофона.
+            </div>
+          )}
+
         {selectedDevice && selectedDevice.includes("(Output/Loopback)") && (
           <div className="device-success">
-            ✅ <strong>ПРАВИЛЬНОЕ УСТРОЙСТВО!</strong><br/>
-            Это устройство поддерживает захват системного звука.
+            🔊 <strong>УСТРОЙСТВО ДЛЯ СИСТЕМНОГО ЗВУКА</strong>
+            <br />
+            Это устройство захватывает звук, который{" "}
+            <strong>воспроизводится</strong> из VB Cable.
+            <br />
+            Используйте для записи музыки, видео, разговоров.
           </div>
         )}
       </div>
@@ -311,7 +326,7 @@ export function AudioDebug() {
               ⏹️ Остановить захват
             </button>
           )}
-          
+
           <button
             onClick={getBufferData}
             className="debug-button"
@@ -319,7 +334,7 @@ export function AudioDebug() {
           >
             📊 Проверить буфер
           </button>
-          
+
           <button
             onClick={saveDebugAudio}
             className="debug-button"
@@ -339,20 +354,20 @@ export function AudioDebug() {
               {isCapturing ? "🔴 Запись" : "⚪ Остановлено"}
             </span>
           </div>
-          
+
           <div className="stat-item">
             <span className="stat-label">Размер буфера:</span>
             <span className="stat-value">
               {bufferSize} байт ({(bufferSize / 1024).toFixed(2)} KB)
             </span>
           </div>
-          
+
           <div className="stat-item">
             <span className="stat-label">Уровень аудио:</span>
             <span className="stat-value">{(audioLevel * 100).toFixed(1)}%</span>
           </div>
         </div>
-        
+
         <div className="audio-level-bar">
           <div
             className="audio-level-fill"
@@ -380,7 +395,9 @@ export function AudioDebug() {
           <li>Воспроизведите звук через выбранное устройство</li>
           <li>Наблюдайте за уровнем аудио и размером буфера</li>
           <li>Нажмите "Сохранить WAV" для сохранения записи</li>
-          <li>Проверьте сохраненный файл в папке Документы/VoiceAssistant/debug</li>
+          <li>
+            Проверьте сохраненный файл в папке Документы/VoiceAssistant/debug
+          </li>
           <li>Используйте analyze-audio.ps1 для анализа записи</li>
         </ol>
         <div className="debug-note">
