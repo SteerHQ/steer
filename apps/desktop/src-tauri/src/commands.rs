@@ -167,11 +167,20 @@ pub async fn get_audio_level(state: State<'_, AudioState>) -> Result<f32, String
         }
         
         // Calculate RMS (Root Mean Square) for audio level
-        let mut sum: f64 = 0.0;
-        let sample_count = buffer.len() / 2; // 16-bit samples = 2 bytes each
+        // For performance, only analyze last 0.5 seconds of audio (48000 samples = 96000 bytes)
+        const MAX_SAMPLES_TO_ANALYZE: usize = 48000; // 0.5 seconds at 48kHz
+        let total_samples = buffer.len() / 2; // 16-bit samples = 2 bytes each
+        let samples_to_analyze = total_samples.min(MAX_SAMPLES_TO_ANALYZE);
+        let start_offset = if total_samples > MAX_SAMPLES_TO_ANALYZE {
+            (total_samples - MAX_SAMPLES_TO_ANALYZE) * 2 // Start from recent data
+        } else {
+            0
+        };
         
-        for i in 0..sample_count {
-            let idx = i * 2;
+        let mut sum: f64 = 0.0;
+        
+        for i in 0..samples_to_analyze {
+            let idx = start_offset + (i * 2);
             if idx + 1 < buffer.len() {
                 // Convert bytes to i16 sample
                 let sample = i16::from_le_bytes([buffer[idx], buffer[idx + 1]]);
@@ -180,7 +189,7 @@ pub async fn get_audio_level(state: State<'_, AudioState>) -> Result<f32, String
             }
         }
         
-        let rms = (sum / sample_count as f64).sqrt();
+        let rms = (sum / samples_to_analyze as f64).sqrt();
         let level = (rms * 2.0).min(1.0) as f32; // Scale and clamp to 0.0-1.0
         
         Ok(level)

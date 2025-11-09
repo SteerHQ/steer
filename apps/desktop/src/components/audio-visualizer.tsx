@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./audio-visualizer.css";
 
@@ -10,6 +10,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   isActive,
 }) => {
   const [audioLevel, setAudioLevel] = useState(0);
+  const isUpdatingRef = useRef(false);
 
   useEffect(() => {
     if (!isActive) {
@@ -20,12 +21,20 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     // Poll audio level every 100ms (10 times per second)
     // This is enough for smooth animation while reducing IPC overhead
     const interval = setInterval(async () => {
+      // Skip if previous call is still in progress
+      if (isUpdatingRef.current) {
+        return;
+      }
+      
+      isUpdatingRef.current = true;
       try {
         const level = await invoke<number>("get_audio_level");
         setAudioLevel(level);
       } catch (error) {
         console.error("Failed to get audio level:", error);
         setAudioLevel(0);
+      } finally {
+        isUpdatingRef.current = false;
       }
     }, 100);
 
