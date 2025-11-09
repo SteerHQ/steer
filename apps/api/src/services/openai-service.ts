@@ -131,7 +131,7 @@ export class OpenAIService {
         const enhancedPrompt = this.buildPrompt(transcript, mode, context);
 
         const { text } = await generateText({
-          model: this.openai("gpt-4o"),
+          model: this.openai("gpt-5"),
           system: systemPrompt,
           prompt: enhancedPrompt,
           maxRetries: 0, // We handle retries ourselves

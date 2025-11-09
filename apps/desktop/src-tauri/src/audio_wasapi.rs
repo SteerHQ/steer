@@ -10,6 +10,7 @@ use windows::{
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use std::collections::VecDeque;
 
 #[derive(Debug)]
 pub enum WasapiError {
@@ -35,7 +36,9 @@ impl From<windows::core::Error> for WasapiError {
 
 pub struct WasapiCapture {
     buffer: Arc<Mutex<Vec<u8>>>,
+    pre_roll_buffer: Arc<Mutex<VecDeque<u8>>>,
     is_capturing: Arc<Mutex<bool>>,
+    is_thread_running: Arc<Mutex<bool>>,
     capture_thread: Option<thread::JoinHandle<()>>,
 }
 
@@ -43,44 +46,78 @@ impl WasapiCapture {
     /// Create a new WASAPI loopback capture instance
     /// This captures all system audio without requiring virtual audio devices
     pub fn new() -> std::result::Result<Self, WasapiError> {
-        tracing::info!("Initializing WASAPI loopback capture");
+        tracing::info!("Initializing WASAPI loopback capture with pre-roll buffer");
         
-        Ok(WasapiCapture {
+        let mut capture = WasapiCapture {
             buffer: Arc::new(Mutex::new(Vec::new())),
+            pre_roll_buffer: Arc::new(Mutex::new(VecDeque::new())),
             is_capturing: Arc::new(Mutex::new(false)),
+            is_thread_running: Arc::new(Mutex::new(false)),
             capture_thread: None,
-        })
+        };
+        
+        // Start the background capture thread immediately
+        capture.start_background_thread()?;
+        
+        Ok(capture)
+    }
+    
+    /// Start the background capture thread that maintains the pre-roll buffer
+    fn start_background_thread(&mut self) -> std::result::Result<(), WasapiError> {
+        let mut is_running = self.is_thread_running.lock().unwrap();
+        if *is_running {
+            return Ok(()); // Already running
+        }
+        
+        *is_running = true;
+        drop(is_running);
+        
+        let buffer = Arc::clone(&self.buffer);
+        let pre_roll_buffer = Arc::clone(&self.pre_roll_buffer);
+        let is_capturing = Arc::clone(&self.is_capturing);
+        let is_thread_running = Arc::clone(&self.is_thread_running);
+        
+        tracing::info!("Starting background WASAPI capture thread for pre-roll buffer");
+        
+        let handle = thread::spawn(move || {
+            if let Err(e) = Self::capture_loop(buffer, pre_roll_buffer, is_capturing, is_thread_running) {
+                tracing::error!("WASAPI capture loop error: {}", e);
+            }
+        });
+        
+        self.capture_thread = Some(handle);
+        Ok(())
     }
 
     /// Start capturing system audio via WASAPI loopback
+    /// This copies the pre-roll buffer and starts recording to the main buffer
     pub fn start_capture(&mut self) -> std::result::Result<(), WasapiError> {
-            let mut is_capturing = self.is_capturing.lock().unwrap();
-            if *is_capturing {
-                return Ok(()); // Already capturing
-            }
+        let mut is_capturing = self.is_capturing.lock().unwrap();
+        if *is_capturing {
+            return Ok(()); // Already capturing
+        }
 
-            *is_capturing = true;
-            drop(is_capturing);
+        *is_capturing = true;
+        drop(is_capturing);
 
-            let buffer = Arc::clone(&self.buffer);
-            let is_capturing_clone = Arc::clone(&self.is_capturing);
+        // Copy pre-roll buffer to main buffer when starting capture
+        {
+            let pre_roll = self.pre_roll_buffer.lock().unwrap();
+            let mut buffer = self.buffer.lock().unwrap();
+            buffer.clear(); // Clear any old data
+            buffer.extend(pre_roll.iter());
+            tracing::info!("Started capture with {} bytes from pre-roll buffer", pre_roll.len());
+        }
 
-            tracing::info!("Starting WASAPI loopback capture thread");
-
-            let handle = thread::spawn(move || {
-                if let Err(e) = Self::capture_loop(buffer, is_capturing_clone) {
-                    tracing::error!("WASAPI capture loop error: {}", e);
-                }
-            });
-
-            self.capture_thread = Some(handle);
-            Ok(())
+        Ok(())
     }
 
     #[cfg(windows)]
     fn capture_loop(
         buffer: Arc<Mutex<Vec<u8>>>,
+        pre_roll_buffer: Arc<Mutex<VecDeque<u8>>>,
         is_capturing: Arc<Mutex<bool>>,
+        is_thread_running: Arc<Mutex<bool>>,
     ) -> std::result::Result<(), WasapiError> {
         unsafe {
             // Initialize COM for this thread
@@ -134,8 +171,11 @@ impl WasapiCapture {
 
                 tracing::info!("WASAPI capture started successfully");
 
-                // Capture loop
-                while *is_capturing.lock().unwrap() {
+                // Pre-roll buffer size: 3 seconds at 48kHz mono 16-bit = 288,000 bytes
+                const PRE_ROLL_SIZE: usize = 288_000;
+                
+                // Capture loop - always running to maintain pre-roll buffer
+                while *is_thread_running.lock().unwrap() {
                     thread::sleep(Duration::from_millis(10));
 
                     let packet_length = match capture_client.GetNextPacketSize() {
@@ -165,7 +205,7 @@ impl WasapiCapture {
                             let audio_data = std::slice::from_raw_parts(data_ptr, data_size);
                             
                             // Convert to 16-bit mono PCM
-                            let mut buffer_guard = buffer.lock().unwrap();
+                            let mut converted_samples = Vec::new();
                             
                             for frame in 0..num_frames as usize {
                                 let frame_offset = frame * frame_size;
@@ -190,14 +230,33 @@ impl WasapiCapture {
                                 
                                 // Average and convert to i16
                                 let sample_i16 = (sample_sum / channels as i32).clamp(-32768, 32767) as i16;
-                                buffer_guard.extend_from_slice(&sample_i16.to_le_bytes());
+                                converted_samples.extend_from_slice(&sample_i16.to_le_bytes());
                             }
 
-                            // Limit buffer to 30 seconds (48kHz * 2 bytes * 30s)
-                            const MAX_BUFFER_SIZE: usize = 2_880_000;
-                            if buffer_guard.len() > MAX_BUFFER_SIZE {
-                                let len = buffer_guard.len();
-                                buffer_guard.drain(0..(len - MAX_BUFFER_SIZE));
+                            let is_actively_capturing = *is_capturing.lock().unwrap();
+                            
+                            // Always update pre-roll buffer (circular buffer)
+                            {
+                                let mut pre_roll = pre_roll_buffer.lock().unwrap();
+                                pre_roll.extend(converted_samples.iter());
+                                
+                                // Keep only last PRE_ROLL_SIZE bytes
+                                while pre_roll.len() > PRE_ROLL_SIZE {
+                                    pre_roll.pop_front();
+                                }
+                            }
+                            
+                            // If actively capturing, also add to main buffer
+                            if is_actively_capturing {
+                                let mut buffer_guard = buffer.lock().unwrap();
+                                buffer_guard.extend_from_slice(&converted_samples);
+                                
+                                // Limit main buffer to 30 seconds (48kHz * 2 bytes * 30s)
+                                const MAX_BUFFER_SIZE: usize = 2_880_000;
+                                if buffer_guard.len() > MAX_BUFFER_SIZE {
+                                    let len = buffer_guard.len();
+                                    buffer_guard.drain(0..(len - MAX_BUFFER_SIZE));
+                                }
                             }
                         }
 
@@ -217,16 +276,25 @@ impl WasapiCapture {
         }
     }
 
-    /// Stop capturing audio
+    /// Stop capturing audio (but keep pre-roll buffer running)
     pub fn stop_capture(&mut self) -> std::result::Result<(), WasapiError> {
         let mut is_capturing = self.is_capturing.lock().unwrap();
         *is_capturing = false;
-        drop(is_capturing);
+        tracing::info!("Stopped active capture, pre-roll buffer continues");
+        Ok(())
+    }
+    
+    /// Stop the background thread completely (called on drop)
+    fn stop_background_thread(&mut self) -> std::result::Result<(), WasapiError> {
+        let mut is_running = self.is_thread_running.lock().unwrap();
+        *is_running = false;
+        drop(is_running);
 
         if let Some(handle) = self.capture_thread.take() {
             handle.join().ok();
         }
 
+        tracing::info!("Stopped background capture thread");
         Ok(())
     }
 
@@ -247,5 +315,6 @@ impl WasapiCapture {
 impl Drop for WasapiCapture {
     fn drop(&mut self) {
         self.stop_capture().ok();
+        self.stop_background_thread().ok();
     }
 }

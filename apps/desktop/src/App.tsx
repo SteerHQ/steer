@@ -53,6 +53,11 @@ function App() {
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
+  
+  // Speech detection state
+  const lastVoiceTimeRef = useRef<number>(0);
+  const silenceStartTimeRef = useRef<number>(0);
+  const isSpeechActiveRef = useRef<boolean>(false);
 
   // Access state from the store
   const {
@@ -257,38 +262,89 @@ function App() {
     // Проверяем, включен ли анализ разговоров
     const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
     
-    // Skip if already processing or analysis is disabled
-    if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current) {
+    // Skip if analysis is disabled
+    if (!analysisEnabled || !audioPipelineRef.current || !interviewServiceRef.current) {
       return;
     }
 
     try {
-      setProcessing(true);
-
-      // Get audio data from Tauri (PCM format)
-      const audioBuffer = await invoke<number[]>("get_audio_data");
+      // Get audio buffer size to check if there's accumulated audio
+      const bufferSize = await invoke<number>("get_buffer_size");
       
-      if (!audioBuffer || audioBuffer.length === 0) {
-        return; // No audio data, skip silently
+      if (bufferSize === 0) {
+        // No audio accumulated yet
+        setCurrentAudioLevel(0);
+        return;
       }
 
-      // Check audio level to detect voice activity
-      const audioLevel = calculateAudioLevel(audioBuffer);
+      // Get current audio level without consuming the buffer
+      const audioLevel = await invoke<number>("get_audio_level");
       setCurrentAudioLevel(audioLevel);
       
       // Get threshold from localStorage (configurable by user)
       const savedThreshold = localStorage.getItem("voice_threshold");
       const VOICE_THRESHOLD = savedThreshold ? parseFloat(savedThreshold) : 0.02;
       
-      console.log('Audio level:', (audioLevel * 100).toFixed(2) + '%, threshold:', (VOICE_THRESHOLD * 100).toFixed(2) + '%');
+      const now = Date.now();
       
-      if (audioLevel < VOICE_THRESHOLD) {
-        console.log('Audio level too low (silence/noise), skipping processing');
-        return; // Тишина или фоновый шум, не обрабатываем
+      // Voice detected
+      if (audioLevel >= VOICE_THRESHOLD) {
+        lastVoiceTimeRef.current = now;
+        
+        if (!isSpeechActiveRef.current) {
+          console.log('🎤 Speech started');
+          isSpeechActiveRef.current = true;
+          silenceStartTimeRef.current = 0;
+        }
+        return; // Continue accumulating
+      }
+      
+      // Silence detected
+      if (isSpeechActiveRef.current) {
+        // Start silence timer if not started
+        if (silenceStartTimeRef.current === 0) {
+          silenceStartTimeRef.current = now;
+          console.log('🔇 Silence started, waiting...');
+        }
+        
+        // Wait for 2 seconds of silence before processing
+        const SILENCE_DURATION = 2000; // 2 seconds
+        const silenceDuration = now - silenceStartTimeRef.current;
+        
+        if (silenceDuration < SILENCE_DURATION) {
+          console.log(`⏳ Silence: ${silenceDuration}ms / ${SILENCE_DURATION}ms`);
+          return; // Wait for more silence
+        }
+        
+        // 2 seconds of silence passed, process the accumulated audio
+        console.log('✅ Speech ended, processing accumulated audio');
+        isSpeechActiveRef.current = false;
+        silenceStartTimeRef.current = 0;
+        
+        // Skip if already processing
+        if (isProcessing) {
+          console.log('⚠️ Already processing, skipping');
+          return;
+        }
+        
+        setProcessing(true);
+      } else {
+        // No active speech, nothing to do
+        return;
       }
 
+      // Get accumulated audio data
+      const audioBuffer = await invoke<number[]>("get_audio_data");
+      
+      if (!audioBuffer || audioBuffer.length === 0) {
+        console.log('⚠️ No audio data after silence');
+        return;
+      }
+      
+      console.log(`📊 Processing ${audioBuffer.length} bytes of accumulated audio`);
+
       // Convert PCM to WAV format using Tauri
-      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes', 'level:', (audioLevel * 100).toFixed(2) + '%');
+      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes');
       const wavPath = await invoke<string>("save_audio_debug", {
         buffer: audioBuffer,
         sampleRate: 48000,
