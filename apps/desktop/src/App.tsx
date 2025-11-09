@@ -10,14 +10,48 @@ import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
 import { PushToTalk } from "./components/push-to-talk";
+import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
+
+/**
+ * Calculate audio level (RMS) from PCM buffer
+ * Returns value from 0.0 (silence) to 1.0 (max volume)
+ */
+function calculateAudioLevel(buffer: number[]): number {
+  if (!buffer || buffer.length === 0) {
+    return 0;
+  }
+
+  // PCM data is 16-bit signed integers (2 bytes per sample)
+  const sampleCount = Math.floor(buffer.length / 2);
+  let sum = 0;
+
+  for (let i = 0; i < sampleCount; i++) {
+    const idx = i * 2;
+    if (idx + 1 < buffer.length) {
+      // Convert bytes to i16 sample (little-endian)
+      const sample = (buffer[idx] | (buffer[idx + 1] << 8));
+      // Convert to signed 16-bit
+      const signedSample = sample > 32767 ? sample - 65536 : sample;
+      // Normalize to -1.0 to 1.0
+      const normalized = signedSample / 32768.0;
+      sum += normalized * normalized;
+    }
+  }
+
+  // Calculate RMS (Root Mean Square)
+  const rms = Math.sqrt(sum / sampleCount);
+  
+  return rms;
+}
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [isCandidateSpeaking, setIsCandidateSpeaking] = useState(false);
+  const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
@@ -245,8 +279,23 @@ function App() {
         return; // No audio data, skip silently
       }
 
+      // Check audio level to detect voice activity
+      const audioLevel = calculateAudioLevel(audioBuffer);
+      setCurrentAudioLevel(audioLevel);
+      
+      // Get threshold from localStorage (configurable by user)
+      const savedThreshold = localStorage.getItem("voice_threshold");
+      const VOICE_THRESHOLD = savedThreshold ? parseFloat(savedThreshold) : 0.02;
+      
+      console.log('Audio level:', (audioLevel * 100).toFixed(2) + '%, threshold:', (VOICE_THRESHOLD * 100).toFixed(2) + '%');
+      
+      if (audioLevel < VOICE_THRESHOLD) {
+        console.log('Audio level too low (silence/noise), skipping processing');
+        return; // Тишина или фоновый шум, не обрабатываем
+      }
+
       // Convert PCM to WAV format using Tauri
-      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes');
+      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes', 'level:', (audioLevel * 100).toFixed(2) + '%');
       const wavPath = await invoke<string>("save_audio_debug", {
         buffer: audioBuffer,
         sampleRate: 48000,
@@ -435,6 +484,13 @@ function App() {
           historyCount={interviewContext?.questions.length || 0}
         />
       </div>
+
+      {/* Voice Sensitivity - показывается только в режиме интервью */}
+      {mode === 'interview' && (
+        <div style={{ marginTop: "16px" }}>
+          <VoiceSensitivity currentLevel={currentAudioLevel} />
+        </div>
+      )}
 
       {/* Speaking Toggle - показывается только в режиме интервью */}
       {mode === 'interview' && (
