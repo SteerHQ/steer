@@ -66,36 +66,17 @@ export const useAppStore = create<AppStore>((set) => ({
       isCapturing: false,
     })),
 
-  // Set transcript from Whisper API
+  // Set transcript from Whisper API (without adding to messages - handled by addMessage)
   setTranscript: (transcript: string) =>
-    set((state) => {
-      const userMessage: ChatMessage = {
-        id: `user-${Date.now()}`,
-        type: "user",
-        content: transcript,
-        timestamp: new Date(),
-      };
-      return {
-        currentTranscript: transcript,
-        messages: [...state.messages, userMessage],
-      };
-    }),
+    set((state) => ({
+      currentTranscript: transcript,
+    })),
 
-  // Set response from GPT-4o API
+  // Set response from GPT-4o API (without adding to messages - handled by addMessage)
   setResponse: (response: string) =>
-    set((state) => {
-      const assistantMessage: ChatMessage = {
-        id: `assistant-${Date.now()}`,
-        type: "assistant",
-        content: response,
-        timestamp: new Date(),
-      };
-      return {
-        currentResponse: response,
-        overlayVisible: true,
-        messages: [...state.messages, assistantMessage],
-      };
-    }),
+    set((state) => ({
+      currentResponse: response,
+    })),
 
   // Add a message to chat (or update last message if same type)
   addMessage: (type: "user" | "assistant" | "system", content: string) =>

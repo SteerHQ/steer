@@ -6,7 +6,6 @@ import { StatusIndicator } from "./components/status-indicator";
 import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
-import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
@@ -346,9 +345,6 @@ function App() {
         return;
       }
 
-      // Set transcript in store (only for questions)
-      setTranscript(transcript);
-
       // Add question to chat immediately
       addMessage('user', transcript);
 
@@ -537,7 +533,6 @@ function App() {
       )}
 
       <div style={{ marginTop: "12px" }}>
-        <AudioVisualizer isActive={isCapturing} />
         {/* Speech state indicator */}
         {mode === 'interview' && isCapturing && (
           <div style={{ 
