@@ -14,16 +14,12 @@ use std::time::Duration;
 #[derive(Debug)]
 pub enum WasapiError {
     InitializationError(String),
-    CaptureError(String),
-    NotSupported,
 }
 
 impl std::fmt::Display for WasapiError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             WasapiError::InitializationError(msg) => write!(f, "Initialization error: {}", msg),
-            WasapiError::CaptureError(msg) => write!(f, "Capture error: {}", msg),
-            WasapiError::NotSupported => write!(f, "WASAPI is only supported on Windows"),
         }
     }
 }
@@ -48,13 +44,6 @@ impl WasapiCapture {
     /// Create a new WASAPI loopback capture instance
     /// This captures all system audio without requiring virtual audio devices
     pub fn new() -> std::result::Result<Self, WasapiError> {
-        #[cfg(not(windows))]
-        {
-            return Err(WasapiError::NotSupported);
-        }
-
-        #[cfg(windows)]
-        {
             tracing::info!("Initializing WASAPI loopback capture");
             
             // Get default sample rate by initializing COM temporarily
@@ -82,18 +71,10 @@ impl WasapiCapture {
                 is_capturing: Arc::new(Mutex::new(false)),
                 capture_thread: None,
             })
-        }
     }
 
     /// Start capturing system audio via WASAPI loopback
     pub fn start_capture(&mut self) -> std::result::Result<(), WasapiError> {
-        #[cfg(not(windows))]
-        {
-            return Err(WasapiError::NotSupported);
-        }
-
-        #[cfg(windows)]
-        {
             let mut is_capturing = self.is_capturing.lock().unwrap();
             if *is_capturing {
                 return Ok(()); // Already capturing
@@ -115,7 +96,6 @@ impl WasapiCapture {
 
             self.capture_thread = Some(handle);
             Ok(())
-        }
     }
 
     #[cfg(windows)]

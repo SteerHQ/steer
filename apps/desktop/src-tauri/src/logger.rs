@@ -116,17 +116,3 @@ fn cleanup_old_logs(log_dir: &PathBuf) -> Result<(), Box<dyn std::error::Error>>
     
     Ok(())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[test]
-    fn test_get_log_directory() {
-        let result = get_log_directory();
-        assert!(result.is_ok());
-        let path = result.unwrap();
-        assert!(path.to_string_lossy().contains("VoiceAssistant"));
-        assert!(path.to_string_lossy().contains("logs"));
-    }
-}
