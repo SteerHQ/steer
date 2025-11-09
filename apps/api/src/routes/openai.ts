@@ -9,11 +9,11 @@ const openai = new Hono();
 // Requirements: 2.3
 openai.post('/transcribe', async (c) => {
   try {
-    // Validate API key in headers
-    const apiKey = c.req.header('Authorization')?.replace('Bearer ', '');
+    // Get API key from environment or headers
+    const apiKey = process.env.OPENAI_API_KEY || c.req.header('Authorization')?.replace('Bearer ', '');
     
     if (!apiKey) {
-      throw new ValidationError('Missing API key in Authorization header');
+      throw new ValidationError('Missing API key');
     }
 
     // Validate request body
@@ -49,11 +49,11 @@ openai.post('/transcribe', async (c) => {
 // Requirements: 3.3
 openai.post('/generate', async (c) => {
   try {
-    // Validate API key in headers
-    const apiKey = c.req.header('Authorization')?.replace('Bearer ', '');
+    // Get API key from environment or headers
+    const apiKey = process.env.OPENAI_API_KEY || c.req.header('Authorization')?.replace('Bearer ', '');
     
     if (!apiKey) {
-      throw new ValidationError('Missing API key in Authorization header');
+      throw new ValidationError('Missing API key');
     }
 
     // Validate request body

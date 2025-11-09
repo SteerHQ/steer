@@ -8,7 +8,6 @@ export interface GenerateOptions {
   transcript: string;
   mode: AssistantMode;
   context?: Array<{ question: string; answer: string }>;
-  apiKey: string;
 }
 
 export class InterviewService {
@@ -22,7 +21,7 @@ export class InterviewService {
    * Generate response with interview mode support
    */
   async generateResponse(options: GenerateOptions): Promise<string> {
-    const { transcript, mode, context, apiKey } = options;
+    const { transcript, mode, context } = options;
 
     logger.info('Generating response', { mode, hasContext: !!context });
 
@@ -37,13 +36,7 @@ export class InterviewService {
         success: boolean;
         response: string;
         mode: AssistantMode;
-      }>(
-        '/api/generate',
-        requestBody,
-        {
-          Authorization: `Bearer ${apiKey}`,
-        }
-      );
+      }>('/api/generate', requestBody);
 
       if (!response.success) {
         throw new Error('Failed to generate response');
@@ -60,7 +53,7 @@ export class InterviewService {
   /**
    * Transcribe audio (wrapper for existing functionality)
    */
-  async transcribeAudio(audioData: Uint8Array, apiKey: string): Promise<string> {
+  async transcribeAudio(audioData: Uint8Array): Promise<string> {
     logger.info('Transcribing audio');
 
     try {
@@ -71,13 +64,7 @@ export class InterviewService {
           language: string;
           duration: number;
         };
-      }>(
-        '/api/transcribe',
-        { audio: Array.from(audioData) },
-        {
-          Authorization: `Bearer ${apiKey}`,
-        }
-      );
+      }>('/api/transcribe', { audio: Array.from(audioData) });
 
       if (!response.success) {
         throw new Error('Failed to transcribe audio');

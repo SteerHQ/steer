@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "./store";
 import { Settings } from "./components/settings";
@@ -68,7 +68,7 @@ function App() {
   useEffect(() => {
     if (isCapturing && config?.apiKey && !processingIntervalRef.current) {
       // Initialize audio pipeline
-      audioPipelineRef.current = new AudioPipeline(config.apiKey);
+      audioPipelineRef.current = new AudioPipeline();
       interviewServiceRef.current = new InterviewService();
 
       // Poll for audio data every 5 seconds
@@ -124,7 +124,7 @@ function App() {
   const checkAudioDevice = async () => {
     try {
       // Try to get capture status from Tauri
-      const status = await invoke<boolean>("get_capture_status");
+      await invoke<boolean>("get_capture_status");
       setAudioDeviceConnected(true);
     } catch (error) {
       console.error("Audio device check failed:", error);
@@ -245,8 +245,7 @@ function App() {
 
       // Transcribe audio
       const transcript = await interviewServiceRef.current.transcribeAudio(
-        audioData,
-        config.apiKey
+        audioData
       );
 
       // Set transcript in store
@@ -260,7 +259,6 @@ function App() {
         transcript,
         mode,
         context,
-        apiKey: config.apiKey,
       });
 
       // Set response in store

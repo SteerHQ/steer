@@ -193,8 +193,8 @@ impl WasapiCapture {
                                 buffer_guard.extend_from_slice(&sample_i16.to_le_bytes());
                             }
 
-                            // Limit buffer to 10 seconds
-                            const MAX_BUFFER_SIZE: usize = 960_000;
+                            // Limit buffer to 30 seconds (48kHz * 2 bytes * 30s)
+                            const MAX_BUFFER_SIZE: usize = 2_880_000;
                             if buffer_guard.len() > MAX_BUFFER_SIZE {
                                 let len = buffer_guard.len();
                                 buffer_guard.drain(0..(len - MAX_BUFFER_SIZE));

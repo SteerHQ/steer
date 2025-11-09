@@ -17,7 +17,7 @@ export function useAudioPipeline(apiKey: string | null, enabled: boolean) {
   // Инициализация пайплайна
   useEffect(() => {
     if (apiKey && enabled) {
-      pipelineRef.current = new AudioPipeline(apiKey);
+      pipelineRef.current = new AudioPipeline();
       logger.info("Audio pipeline initialized");
     } else {
       pipelineRef.current = null;

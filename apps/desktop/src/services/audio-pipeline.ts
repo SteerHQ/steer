@@ -4,12 +4,9 @@ import type { WhisperResponse, ErrorResponse } from "@steer/types";
 const API_BASE_URL = "http://localhost:3000";
 
 export class AudioPipeline {
-  private apiKey: string;
   private isProcessing: boolean = false;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
-  }
+  constructor() {}
 
   /**
    * Process audio pipeline: capture -> process -> transcribe -> generate
@@ -115,12 +112,17 @@ export class AudioPipeline {
    * Requirements: 2.1, 2.3
    */
   private async transcribeAudio(audioData: number[]): Promise<WhisperResponse> {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key');
+    if (!apiKey) {
+      throw new Error('API key not configured');
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           audio: audioData,
@@ -147,12 +149,17 @@ export class AudioPipeline {
    * Requirements: 3.1, 3.3
    */
   private async generateResponse(transcript: string): Promise<string> {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key');
+    if (!apiKey) {
+      throw new Error('API key not configured');
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
+          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           transcript,

@@ -35,6 +35,14 @@ export class ApiClient {
   }
 
   /**
+   * Получить заголовки по умолчанию с API ключом
+   */
+  private getDefaultHeaders(): HeadersInit {
+    const apiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('openai_api_key');
+    return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+  }
+
+  /**
    * Выполнить запрос с retry логикой
    */
   async request<T>(
@@ -132,7 +140,10 @@ export class ApiClient {
   async get<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: "GET",
-      headers,
+      headers: {
+        ...this.getDefaultHeaders(),
+        ...headers,
+      },
     });
   }
 
@@ -148,6 +159,7 @@ export class ApiClient {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...this.getDefaultHeaders(),
         ...headers,
       },
       body: body ? JSON.stringify(body) : undefined,
