@@ -28,10 +28,10 @@ export class AudioPipeline {
       }
 
       // Step 2: Process audio (convert to WAV)
-      const processedAudio = await this.processAudioBuffer(audioBuffer);
+      const wavAudio = await this.processAudioBuffer(audioBuffer);
 
       // Step 3: Transcribe audio using Whisper API
-      const transcription = await this.transcribeAudio(processedAudio);
+      const transcription = await this.transcribeAudio(wavAudio);
 
       if (!transcription.text || transcription.text.trim() === "") {
         throw new Error("Transcription is empty");
@@ -76,45 +76,82 @@ export class AudioPipeline {
   }
 
   /**
-   * Process audio buffer via API
+   * Process audio buffer - convert PCM to WAV format
    * Requirement: 2.1
    */
   private async processAudioBuffer(buffer: number[]): Promise<number[]> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/audio/process`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          buffer,
-          sampleRate: 16000, // As per design: 16kHz
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = (await response.json()) as ErrorResponse;
-        throw new Error(errorData.error || "Failed to process audio");
-      }
-
-      const data = await response.json();
-      return data.audio;
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error("Failed to process audio buffer");
-    }
+    console.log('Converting PCM to WAV, size:', buffer.length, 'bytes');
+    
+    // WAV file parameters
+    const sampleRate = 48000; // Match Tauri's sample rate
+    const numChannels = 1; // mono
+    const bitsPerSample = 16;
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = buffer.length;
+    const headerSize = 44;
+    const fileSize = headerSize + dataSize;
+    
+    // Create WAV header
+    const wavBuffer = new Uint8Array(fileSize);
+    const view = new DataView(wavBuffer.buffer);
+    
+    // RIFF chunk descriptor
+    view.setUint8(0, 'R'.charCodeAt(0));
+    view.setUint8(1, 'I'.charCodeAt(0));
+    view.setUint8(2, 'F'.charCodeAt(0));
+    view.setUint8(3, 'F'.charCodeAt(0));
+    view.setUint32(4, fileSize - 8, true); // File size - 8
+    view.setUint8(8, 'W'.charCodeAt(0));
+    view.setUint8(9, 'A'.charCodeAt(0));
+    view.setUint8(10, 'V'.charCodeAt(0));
+    view.setUint8(11, 'E'.charCodeAt(0));
+    
+    // fmt sub-chunk
+    view.setUint8(12, 'f'.charCodeAt(0));
+    view.setUint8(13, 'm'.charCodeAt(0));
+    view.setUint8(14, 't'.charCodeAt(0));
+    view.setUint8(15, ' '.charCodeAt(0));
+    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, byteRate, true); // ByteRate
+    view.setUint16(32, blockAlign, true); // BlockAlign
+    view.setUint16(34, bitsPerSample, true); // BitsPerSample
+    
+    // data sub-chunk
+    view.setUint8(36, 'd'.charCodeAt(0));
+    view.setUint8(37, 'a'.charCodeAt(0));
+    view.setUint8(38, 't'.charCodeAt(0));
+    view.setUint8(39, 'a'.charCodeAt(0));
+    view.setUint32(40, dataSize, true); // Subchunk2Size
+    
+    // Copy audio data
+    wavBuffer.set(new Uint8Array(buffer), headerSize);
+    
+    // Verify header
+    const header = String.fromCharCode(wavBuffer[0], wavBuffer[1], wavBuffer[2], wavBuffer[3]);
+    console.log('Created WAV file:', wavBuffer.length, 'bytes, header:', header);
+    
+    return Array.from(wavBuffer);
   }
 
   /**
    * Transcribe audio using Whisper API
    * Requirements: 2.1, 2.3
    */
-  private async transcribeAudio(audioData: number[]): Promise<WhisperResponse> {
+  private async transcribeAudio(wavData: number[]): Promise<WhisperResponse> {
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key');
     if (!apiKey) {
       throw new Error('API key not configured');
+    }
+
+    // Verify WAV data before sending
+    console.log('Sending to transcribe, size:', wavData.length, 'bytes');
+    if (wavData.length > 4) {
+      const header = String.fromCharCode(...wavData.slice(0, 4));
+      console.log('WAV header before transcribe:', header === 'RIFF' ? '✓ Valid' : '✗ Invalid', header, 'First bytes:', wavData.slice(0, 12));
     }
 
     try {
@@ -125,7 +162,7 @@ export class AudioPipeline {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          audio: audioData,
+          audio: wavData,
         }),
       });
 
@@ -172,7 +209,7 @@ export class AudioPipeline {
       }
 
       const data = await response.json();
-      return data.response.message;
+      return data.response;
     } catch (error) {
       if (error instanceof Error) {
         throw error;

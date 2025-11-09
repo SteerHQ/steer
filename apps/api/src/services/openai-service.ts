@@ -25,10 +25,12 @@ export class OpenAIService {
    */
   async transcribeAudio(audioBlob: Blob): Promise<WhisperResponse> {
     return this.withRetry(async () => {
+      console.log(audioBlob)
       const formData = new FormData();
       formData.append("file", audioBlob, "audio.wav");
       formData.append("model", "whisper-1");
       formData.append("language", "ru");
+      formData.append("response_format", "json"); // или "verbose_json" для timestamps
 
       const controller = new AbortController();
       const timeoutId = setTimeout(
@@ -48,7 +50,7 @@ export class OpenAIService {
             signal: controller.signal,
           }
         );
-
+        console.log(await response.text())
         clearTimeout(timeoutId);
 
         if (!response.ok) {

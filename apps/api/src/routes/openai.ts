@@ -11,21 +11,21 @@ openai.post('/transcribe', async (c) => {
   try {
     // Get API key from environment or headers
     const apiKey = process.env.OPENAI_API_KEY || c.req.header('Authorization')?.replace('Bearer ', '');
-    
+
     if (!apiKey) {
       throw new ValidationError('Missing API key');
     }
 
     // Validate request body
     const body = await c.req.json();
-    
     if (!body.audio) {
       throw new ValidationError('Missing required field: audio');
     }
 
-    // Convert audio array back to Blob
+    // Convert audio array back to Blob (data is already in WAV format from /api/audio/process)
     const audioArray = new Uint8Array(body.audio);
     const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+ 
 
     // Create OpenAI service instance
     const openaiService = new OpenAIService(apiKey);

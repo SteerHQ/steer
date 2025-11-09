@@ -70,6 +70,12 @@ export class AudioProcessor {
     wavBuffer.set(new Uint8Array(wavHeader), 0);
     wavBuffer.set(buffer, headerSize);
 
+    // Verify header was written correctly
+    const headerCheck = String.fromCharCode(wavBuffer[0], wavBuffer[1], wavBuffer[2], wavBuffer[3]);
+    if (headerCheck !== 'RIFF') {
+      console.error('WAV header creation failed! Got:', headerCheck, 'bytes:', Array.from(wavBuffer.slice(0, 4)));
+    }
+
     return new Blob([wavBuffer], { type: 'audio/wav' });
   }
 

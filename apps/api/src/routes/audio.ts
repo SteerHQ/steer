@@ -31,6 +31,8 @@ audio.post('/process', async (c) => {
     const bufferData = new Uint8Array(body.buffer);
     const sampleRate = body.sampleRate;
 
+    console.log('Processing audio:', bufferData.length, 'bytes at', sampleRate, 'Hz');
+
     // Validate buffer is not empty
     if (bufferData.length === 0) {
       return c.json({ 
@@ -49,6 +51,10 @@ audio.post('/process', async (c) => {
     // Convert Blob to ArrayBuffer for response
     const arrayBuffer = await wavBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
+
+    // Verify WAV header
+    const header = String.fromCharCode(...uint8Array.slice(0, 4));
+    console.log('Created WAV file:', uint8Array.length, 'bytes, header:', header);
 
     // Return processed audio data
     return c.json({
