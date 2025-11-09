@@ -355,8 +355,11 @@ function App() {
       // Get context for interview mode
       const context = mode === 'interview' ? getInterviewContext() : undefined;
 
-      // Generate response with streaming (updates chat in real-time)
-      console.log('⚡ Starting streaming response generation...');
+      // Check if streaming is enabled (default: true)
+      const streamingEnabled = localStorage.getItem("streaming_enabled") !== "false";
+      
+      // Generate response with optional streaming
+      console.log(`⚡ Starting response generation (streaming: ${streamingEnabled})...`);
       console.time('⚡ Total response time');
       
       const response = await interviewServiceRef.current.generateResponseStream(
@@ -370,11 +373,12 @@ function App() {
           setResponse(partialResponse);
           // Update last message in chat (bot response)
           addMessage('assistant', partialResponse);
-        }
+        },
+        streamingEnabled // Pass streaming flag
       );
       
       console.timeEnd('⚡ Total response time');
-      console.log('✅ Streaming completed, final length:', response.length);
+      console.log('✅ Response generation completed, final length:', response.length);
 
       // Set final response in store
       setResponse(response);
@@ -601,6 +605,27 @@ function App() {
           }
         >
           💾 Сохранить аудио
+        </button>
+        <button
+          onClick={() => {
+            const current = localStorage.getItem("streaming_enabled") !== "false";
+            localStorage.setItem("streaming_enabled", (!current).toString());
+            window.location.reload();
+          }}
+          className={`btn ${
+            localStorage.getItem("streaming_enabled") !== "false"
+              ? "btn-success"
+              : "btn-secondary"
+          }`}
+          title={
+            localStorage.getItem("streaming_enabled") !== "false"
+              ? "Streaming включен (ответ появляется постепенно)"
+              : "Streaming выключен (ответ появляется целиком)"
+          }
+        >
+          {localStorage.getItem("streaming_enabled") !== "false"
+            ? "⚡ Stream ВКЛ"
+            : "📄 Stream ВЫКЛ"}
         </button>
         <button
           onClick={clearMessages}

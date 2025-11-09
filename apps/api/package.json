@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun run --watch src/index.ts",
+    "dev": "bun run --watch --env-file=../../.env src/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "start": "bun run dist/index.js",
+    "start": "bun run --env-file=../../.env dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext ts",
     "test": "vitest run",

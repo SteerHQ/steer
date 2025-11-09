@@ -22,11 +22,12 @@ export class InterviewService {
    */
   async generateResponseStream(
     options: GenerateOptions,
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    useStreaming: boolean = false
   ): Promise<string> {
     const { transcript, mode, context } = options;
 
-    logger.info('Generating response with streaming', { mode, hasContext: !!context });
+    logger.info('Generating response', { mode, hasContext: !!context, streaming: useStreaming });
 
     try {
       const requestBody: GenerateRequest = {
@@ -35,7 +36,10 @@ export class InterviewService {
         context,
       };
 
-      const response = await fetch('http://localhost:3000/api/generate', {
+      // Add stream query parameter
+      const url = `http://localhost:3000/api/generate${useStreaming ? '?stream=true' : '?stream=false'}`;
+
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -48,6 +52,16 @@ export class InterviewService {
         throw new Error(errorData.error || 'Failed to generate response');
       }
 
+      // Non-streaming mode
+      if (!useStreaming) {
+        const data = await response.json();
+        const fullResponse = data.response;
+        onChunk(fullResponse); // Call once with full response
+        logger.info('Response generated (non-streaming)', { mode });
+        return fullResponse;
+      }
+
+      // Streaming mode
       const reader = response.body?.getReader();
       if (!reader) {
         throw new Error('No response body');

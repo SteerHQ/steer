@@ -5,7 +5,8 @@ import { ValidationError } from '../middleware/error-handler';
 const generate = new Hono();
 
 // POST /api/generate
-// Generate response with streaming (default)
+// Generate response with optional streaming
+// Query params: ?stream=true (default) or ?stream=false
 // Requirements: 3.3
 generate.post('/', async (c) => {
   try {
@@ -32,8 +33,29 @@ generate.post('/', async (c) => {
       throw new ValidationError(`Invalid mode. Must be one of: ${validModes.join(', ')}`);
     }
 
+    // Check if streaming is requested (default: true)
+    const streamParam = c.req.query('stream');
+    const useStreaming = streamParam !== 'false'; // true by default
+
     const openaiService = new OpenAIService(apiKey);
 
+    // Non-streaming mode
+    if (!useStreaming) {
+      const response = await openaiService.generateResponse(
+        body.transcript,
+        mode,
+        body.context
+      );
+
+      return c.json({
+        success: true,
+        response,
+        mode,
+        streaming: false,
+      });
+    }
+
+    // Streaming mode (default)
     // Set up SSE (Server-Sent Events) headers
     c.header('Content-Type', 'text/event-stream');
     c.header('Cache-Control', 'no-cache');

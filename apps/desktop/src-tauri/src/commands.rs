@@ -339,7 +339,77 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     Ok(device_names)
 }
 
+/// Trim silence from PCM buffer (removes silence from start and end)
+/// 
+/// # Arguments
+/// * `buffer` - PCM audio data (16-bit mono)
+/// * `threshold` - Silence threshold (0.0 to 1.0, default 0.02)
+/// 
+/// # Returns
+/// * Trimmed buffer with padding
+fn trim_silence(buffer: &[u8], threshold: f32) -> Vec<u8> {
+    if buffer.len() < 2 {
+        return buffer.to_vec();
+    }
+    
+    let sample_count = buffer.len() / 2;
+    let threshold_i16 = (threshold * 32768.0) as i16;
+    
+    // Find first non-silent sample
+    let mut start_idx = 0;
+    for i in 0..sample_count {
+        let idx = i * 2;
+        if idx + 1 < buffer.len() {
+            let sample = i16::from_le_bytes([buffer[idx], buffer[idx + 1]]);
+            if sample.abs() > threshold_i16 {
+                start_idx = i;
+                break;
+            }
+        }
+    }
+    
+    // Find last non-silent sample
+    let mut end_idx = sample_count;
+    for i in (0..sample_count).rev() {
+        let idx = i * 2;
+        if idx + 1 < buffer.len() {
+            let sample = i16::from_le_bytes([buffer[idx], buffer[idx + 1]]);
+            if sample.abs() > threshold_i16 {
+                end_idx = i + 1;
+                break;
+            }
+        }
+    }
+    
+    // Add padding (0.2 seconds before and after)
+    let padding_samples = (48000.0 * 0.2) as usize; // 0.2 seconds at 48kHz
+    let start_with_padding = start_idx.saturating_sub(padding_samples);
+    let end_with_padding = (end_idx + padding_samples).min(sample_count);
+    
+    // Extract trimmed audio
+    let start_byte = start_with_padding * 2;
+    let end_byte = end_with_padding * 2;
+    
+    if start_byte >= buffer.len() || end_byte > buffer.len() || start_byte >= end_byte {
+        return buffer.to_vec();
+    }
+    
+    let trimmed = buffer[start_byte..end_byte].to_vec();
+    
+    tracing::info!(
+        "Trimmed silence: {} samples -> {} samples (removed {} from start, {} from end, added {} padding)",
+        sample_count,
+        trimmed.len() / 2,
+        start_idx - start_with_padding,
+        sample_count - end_idx,
+        padding_samples
+    );
+    
+    trimmed
+}
+
 /// Convert PCM buffer to WAV format in memory (fast, no disk I/O)
+/// Automatically trims silence from start and end
 /// 
 /// # Arguments
 /// * `buffer` - PCM audio data (16-bit mono)
@@ -349,14 +419,17 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
 /// * `Result<Vec<u8>, String>` - WAV file data or error
 #[tauri::command]
 pub async fn convert_pcm_to_wav(buffer: Vec<u8>, sample_rate: u32) -> Result<Vec<u8>, String> {
+    // Trim silence from buffer (threshold 2%)
+    let trimmed_buffer = trim_silence(&buffer, 0.02);
+    
     // WAV header parameters
     let num_channels: u16 = 1; // mono
     let bits_per_sample: u16 = 16;
     let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
     let block_align = num_channels * bits_per_sample / 8;
-    let data_size = buffer.len() as u32;
+    let data_size = trimmed_buffer.len() as u32;
     
-    let mut wav_data = Vec::with_capacity(44 + buffer.len());
+    let mut wav_data = Vec::with_capacity(44 + trimmed_buffer.len());
     
     // RIFF header
     wav_data.extend_from_slice(b"RIFF");
@@ -376,9 +449,14 @@ pub async fn convert_pcm_to_wav(buffer: Vec<u8>, sample_rate: u32) -> Result<Vec
     // data chunk
     wav_data.extend_from_slice(b"data");
     wav_data.extend_from_slice(&data_size.to_le_bytes());
-    wav_data.extend_from_slice(&buffer);
+    wav_data.extend_from_slice(&trimmed_buffer);
     
-    tracing::debug!("Converted {} bytes PCM to {} bytes WAV in memory", buffer.len(), wav_data.len());
+    tracing::debug!(
+        "Converted {} bytes PCM to {} bytes WAV (trimmed from {} bytes)",
+        trimmed_buffer.len(),
+        wav_data.len(),
+        buffer.len()
+    );
     
     Ok(wav_data)
 }
@@ -398,6 +476,7 @@ pub async fn read_wav_file(path: String) -> Result<Vec<u8>, String> {
 }
 
 /// Save audio buffer to WAV file for debugging
+/// Automatically trims silence from start and end
 /// 
 /// # Arguments
 /// * `buffer` - Audio buffer data (16-bit PCM)
@@ -409,6 +488,9 @@ pub async fn read_wav_file(path: String) -> Result<Vec<u8>, String> {
 pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<String, String> {
     use std::fs::File;
     use std::io::Write;
+    
+    // Trim silence from buffer
+    let trimmed_buffer = trim_silence(&buffer, 0.02);
     
     // Create debug directory in user's documents
     let mut debug_path = dirs::document_dir()
@@ -433,7 +515,7 @@ pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<Strin
     let bits_per_sample: u16 = 16;
     let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
     let block_align = num_channels * bits_per_sample / 8;
-    let data_size = buffer.len() as u32;
+    let data_size = trimmed_buffer.len() as u32;
     
     // RIFF header
     file.write_all(b"RIFF").map_err(|e| format!("Write error: {}", e))?;
@@ -453,10 +535,15 @@ pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<Strin
     // data chunk
     file.write_all(b"data").map_err(|e| format!("Write error: {}", e))?;
     file.write_all(&data_size.to_le_bytes()).map_err(|e| format!("Write error: {}", e))?;
-    file.write_all(&buffer).map_err(|e| format!("Write error: {}", e))?;
+    file.write_all(&trimmed_buffer).map_err(|e| format!("Write error: {}", e))?;
     
     let path_str = debug_path.to_string_lossy().to_string();
-    tracing::info!("Saved debug audio to: {}", path_str);
+    tracing::info!(
+        "Saved debug audio to: {} (trimmed from {} to {} bytes)",
+        path_str,
+        buffer.len(),
+        trimmed_buffer.len()
+    );
     
     Ok(path_str)
 }
