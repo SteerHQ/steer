@@ -57,21 +57,28 @@ export class InterviewService {
     logger.info('Transcribing audio');
 
     try {
-      const response = await this.apiClient.post<{
-        success: boolean;
-        transcription: {
-          text: string;
-          language: string;
-          duration: number;
-        };
-      }>('/api/transcribe', { audio: Array.from(audioData) });
+      // Send raw binary data directly instead of JSON
+      const response = await fetch('http://localhost:3000/api/transcribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'audio/wav',
+        },
+        body: audioData as unknown as BodyInit,
+      });
 
-      if (!response.success) {
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to transcribe audio');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
         throw new Error('Failed to transcribe audio');
       }
 
       logger.info('Audio transcribed successfully');
-      return response.transcription.text;
+      return data.transcription.text;
     } catch (error) {
       logger.error('Failed to transcribe audio', error instanceof Error ? error : new Error(String(error)));
       throw error;

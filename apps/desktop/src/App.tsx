@@ -66,7 +66,7 @@ function App() {
 
   // Start audio processing pipeline when capturing
   useEffect(() => {
-    if (isCapturing && config?.apiKey && !processingIntervalRef.current) {
+    if (isCapturing && !processingIntervalRef.current) {
       // Initialize audio pipeline
       audioPipelineRef.current = new AudioPipeline();
       interviewServiceRef.current = new InterviewService();
@@ -84,30 +84,27 @@ function App() {
         processingIntervalRef.current = null;
       }
     };
-  }, [isCapturing, config]);
+  }, [isCapturing]);
 
   /**
    * Initialize application
-   * - Check for API key in local storage
    * - Check audio device connection
    */
   const initializeApp = async () => {
     try {
-      // Check if API key exists in localStorage
-      const storedApiKey = localStorage.getItem("openai_api_key");
+      // Load config from localStorage
       const storedConfig = localStorage.getItem("app_config");
 
-      if (storedApiKey && storedConfig) {
+      if (storedConfig) {
         const parsedConfig = JSON.parse(storedConfig) as AppConfig;
         setConfig(parsedConfig);
-        setApiKeyConfigured(true);
-
-        // Check audio device connection
-        await checkAudioDevice();
-      } else {
-        // No API key configured, show settings
-        setShowSettings(true);
       }
+      
+      // API key is always configured (server-side)
+      setApiKeyConfigured(true);
+
+      // Check audio device connection
+      await checkAudioDevice();
     } catch (error) {
       console.error("Failed to initialize app:", error);
       setError({
@@ -174,8 +171,7 @@ function App() {
       const oldDeviceName = config?.audioDevice;
       const newDeviceName = newConfig.audioDevice;
 
-      // Save API key and config to localStorage
-      localStorage.setItem("openai_api_key", newConfig.apiKey);
+      // Save config to localStorage (no API key needed)
       localStorage.setItem("app_config", JSON.stringify(newConfig));
 
       setConfig(newConfig);
@@ -227,7 +223,7 @@ function App() {
     const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
     
     // Skip if already processing or analysis is disabled
-    if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current || !config?.apiKey) {
+    if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current) {
       return;
     }
 
@@ -361,13 +357,13 @@ function App() {
     return "idle";
   };
 
-  // Show settings if API key is not configured
-  if (showSettings || !apiKeyConfigured) {
+  // Show settings if requested
+  if (showSettings) {
     return (
       <Settings
         initialConfig={config || undefined}
         onSave={handleSettingsSave}
-        onCancel={apiKeyConfigured ? handleSettingsCancel : undefined}
+        onCancel={handleSettingsCancel}
       />
     );
   }

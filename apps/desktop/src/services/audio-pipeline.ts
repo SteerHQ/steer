@@ -117,11 +117,6 @@ export class AudioPipeline {
    * Requirements: 2.1, 2.3
    */
   private async transcribeAudio(wavData: number[]): Promise<WhisperResponse> {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key');
-    if (!apiKey) {
-      throw new Error('API key not configured');
-    }
-
     // Verify WAV data before sending
     console.log('Sending to transcribe, size:', wavData.length, 'bytes');
     if (wavData.length > 4) {
@@ -130,15 +125,15 @@ export class AudioPipeline {
     }
 
     try {
+      // Send raw binary data directly (much faster than JSON)
+      const audioBlob = new Uint8Array(wavData);
+      
       const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "audio/wav",
         },
-        body: JSON.stringify({
-          audio: wavData,
-        }),
+        body: audioBlob,
       });
 
       if (!response.ok) {
@@ -161,17 +156,11 @@ export class AudioPipeline {
    * Requirements: 3.1, 3.3
    */
   private async generateResponse(transcript: string): Promise<string> {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key');
-    if (!apiKey) {
-      throw new Error('API key not configured');
-    }
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/generate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           transcript,

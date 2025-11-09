@@ -15,7 +15,6 @@ export const Settings: React.FC<SettingsProps> = ({
   onSave,
   onCancel,
 }) => {
-  const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
   const [audioDevice, setAudioDevice] = useState(
     initialConfig?.audioDevice || "WASAPI Loopback"
   );
@@ -25,7 +24,6 @@ export const Settings: React.FC<SettingsProps> = ({
   const [autoHideDuration, setAutoHideDuration] = useState(
     initialConfig?.autoHideDuration || 10000
   );
-  const [showApiKey, setShowApiKey] = useState(false);
   const [audioDevices, setAudioDevices] = useState<string[]>([]);
   const [loadingDevices, setLoadingDevices] = useState(true);
 
@@ -51,7 +49,7 @@ export const Settings: React.FC<SettingsProps> = ({
     e.preventDefault();
 
     const config: AppConfig = {
-      apiKey,
+      apiKey: '', // Not needed anymore, server handles it
       audioDevice,
       overlayPosition,
       autoHideDuration,
@@ -66,7 +64,7 @@ export const Settings: React.FC<SettingsProps> = ({
     onSave(config);
   };
 
-  const isValid = apiKey.trim().length > 0;
+  const isValid = true; // Always valid now
 
   return (
     <div className="settings-container">
@@ -75,41 +73,6 @@ export const Settings: React.FC<SettingsProps> = ({
         <h2 className="settings-title">Настройки</h2>
 
         <form onSubmit={handleSubmit} className="settings-form">
-          <div className="form-group">
-            <label htmlFor="apiKey" className="form-label">
-              OpenAI API ключ *
-            </label>
-            <div className="api-key-input-wrapper">
-              <input
-                id="apiKey"
-                type={showApiKey ? "text" : "password"}
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="form-input"
-                placeholder="sk-..."
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(!showApiKey)}
-                className="toggle-visibility-btn"
-                aria-label={showApiKey ? "Скрыть ключ" : "Показать ключ"}
-              >
-                {showApiKey ? "👁️" : "👁️‍🗨️"}
-              </button>
-            </div>
-            <small className="form-hint">
-              Получите ключ на{" "}
-              <a
-                href="https://platform.openai.com/api-keys"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                platform.openai.com
-              </a>
-            </small>
-          </div>
-
           <div className="form-group">
             <label htmlFor="audioDevice" className="form-label">
               Аудиоустройство

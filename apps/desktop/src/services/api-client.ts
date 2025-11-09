@@ -35,11 +35,10 @@ export class ApiClient {
   }
 
   /**
-   * Получить заголовки по умолчанию с API ключом
+   * Получить заголовки по умолчанию
    */
   private getDefaultHeaders(): HeadersInit {
-    const apiKey = import.meta.env.VITE_API_KEY || localStorage.getItem('openai_api_key');
-    return apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+    return {};
   }
 
   /**
