@@ -1,20 +1,22 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, streamText } from "ai";
+import OpenAI from "openai";
 import type { TranscriptionResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
 export class OpenAIService {
   private readonly openai: ReturnType<typeof createOpenAI>;
-  private readonly apiKey: string;
-  private readonly transcriptionTimeout = 30000; // 30 seconds
+  private readonly openaiClient: OpenAI;
   private readonly maxRetries = 2;
 
   constructor(apiKey: string) {
     if (!apiKey || apiKey.trim() === "") {
       throw new Error("OpenAI API key is required");
     }
-    this.apiKey = apiKey;
     this.openai = createOpenAI({
+      apiKey,
+    });
+    this.openaiClient = new OpenAI({
       apiKey,
     });
   }
@@ -25,54 +27,38 @@ export class OpenAIService {
    */
   async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
     return this.withRetry(async () => {
-      const formData = new FormData();
-      formData.append("file", audioBlob, "audio.wav");
-      formData.append("model", "gpt-4o-transcribe");
-      formData.append("language", "ru");
-      formData.append("response_format", "json"); // или "verbose_json" для timestamps
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(
-        () => controller.abort(),
-        this.transcriptionTimeout
-      );
-
       try {
-        const response = await fetch(
-          "https://api.openai.com/v1/audio/transcriptions",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${this.apiKey}`,
-            },
-            body: formData,
-            signal: controller.signal,
-          }
-        );
-        clearTimeout(timeoutId);
+        // Convert Blob to File for OpenAI client
+        const file = new File([audioBlob], "audio.wav", { type: "audio/wav" });
 
-        if (!response.ok) {
-          const errorData = (await response.json().catch(() => ({}))) as any;
-          throw new OpenAIError(
-            errorData.error?.message || `HTTP ${response.status}`,
-            response.status,
-            this.getErrorCode(response.status)
-          );
-        }
-
-        const data = (await response.json()) as any;
+        // Use OpenAI client for transcription
+        // Note: gpt-4o-transcribe only supports 'json' or 'text' format, not 'verbose_json'
+        const transcription = await this.openaiClient.audio.transcriptions.create({
+          file: file,
+          model: "gpt-4o-transcribe",
+          language: "ru",
+          response_format: "json",
+        });
 
         return {
-          text: data.text,
-          language: data.language || "ru",
-          duration: data.duration || 0,
+          text: transcription.text,
+          language: "ru", // gpt-4o-transcribe doesn't return language field
+          duration: 0, // gpt-4o-transcribe doesn't return duration field
         };
-      } catch (error) {
-        clearTimeout(timeoutId);
-        if (error instanceof Error && error.name === "AbortError") {
-          throw new OpenAIError("Request timeout", 408, "TIMEOUT");
+      } catch (error: any) {
+        // Handle OpenAI client errors
+        if (error?.status) {
+          throw new OpenAIError(
+            error.message || `OpenAI API error`,
+            error.status,
+            this.getErrorCode(error.status)
+          );
         }
-        throw error;
+        throw new OpenAIError(
+          error?.message || "Failed to transcribe audio",
+          500,
+          "TRANSCRIPTION_ERROR"
+        );
       }
     });
   }

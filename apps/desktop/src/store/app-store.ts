@@ -66,7 +66,7 @@ export const useAppStore = create<AppStore>((set) => ({
       isCapturing: false,
     })),
 
-  // Set transcript from Whisper API (without adding to messages - handled by addMessage)
+  // Set transcript from OpenAI transcription API (without adding to messages - handled by addMessage)
   setTranscript: (transcript: string) =>
     set((state) => ({
       currentTranscript: transcript,
