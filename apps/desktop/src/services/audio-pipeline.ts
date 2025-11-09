@@ -30,7 +30,7 @@ export class AudioPipeline {
       // Step 2: Process audio (convert to WAV)
       const wavAudio = await this.processAudioBuffer(audioBuffer);
 
-      // Step 3: Transcribe audio using Whisper API
+      // Step 3: Transcribe audio using OpenAI transcription API
       const transcription = await this.transcribeAudio(wavAudio);
 
       if (!transcription.text || transcription.text.trim() === "") {
@@ -113,7 +113,7 @@ export class AudioPipeline {
   }
 
   /**
-   * Transcribe audio using Whisper API
+   * Transcribe audio using OpenAI gpt-4o-transcribe model
    * Requirements: 2.1, 2.3
    */
   private async transcribeAudio(wavData: number[]): Promise<WhisperResponse> {

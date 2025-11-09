@@ -1,12 +1,12 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText, streamText } from "ai";
-import type { WhisperResponse } from "@steer/types";
+import type { TranscriptionResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
 export class OpenAIService {
   private readonly openai: ReturnType<typeof createOpenAI>;
   private readonly apiKey: string;
-  private readonly whisperTimeout = 30000; // 30 seconds
+  private readonly transcriptionTimeout = 30000; // 30 seconds
   private readonly maxRetries = 2;
 
   constructor(apiKey: string) {
@@ -20,22 +20,21 @@ export class OpenAIService {
   }
 
   /**
-   * Transcribe audio using OpenAI Whisper API
+   * Transcribe audio using OpenAI gpt-4o-transcribe model
    * Requirements: 2.1, 2.2, 2.3, 2.5
    */
-  async transcribeAudio(audioBlob: Blob): Promise<WhisperResponse> {
+  async transcribeAudio(audioBlob: Blob): Promise<TranscriptionResponse> {
     return this.withRetry(async () => {
-      console.log(audioBlob)
       const formData = new FormData();
       formData.append("file", audioBlob, "audio.wav");
-      formData.append("model", "whisper-1");
+      formData.append("model", "gpt-4o-transcribe");
       formData.append("language", "ru");
       formData.append("response_format", "json"); // или "verbose_json" для timestamps
 
       const controller = new AbortController();
       const timeoutId = setTimeout(
         () => controller.abort(),
-        this.whisperTimeout
+        this.transcriptionTimeout
       );
 
       try {
@@ -85,7 +84,7 @@ export class OpenAIService {
     return this.withRetry(async () => {
       try {
         const { text } = await generateText({
-          model: this.openai("gpt-5-mini"),
+          model: this.openai("gpt-5-nano"),
           system: `Ты - детектор вопросов на техническом собеседовании.
 Твоя задача: определить, является ли текст ВОПРОСОМ, на который нужно дать ответ.
 

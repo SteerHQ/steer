@@ -22,8 +22,8 @@ bun run start
 - `POST /api/audio/process` - Обработка аудио буфера (будет реализовано в task 6.2)
 
 ### OpenAI Integration
-- `POST /api/transcribe` - Транскрипция аудио через Whisper API (будет реализовано в task 7.4)
-- `POST /api/generate` - Генерация ответа через GPT-4o API (будет реализовано в task 7.4)
+- `POST /api/transcribe` - Транскрипция аудио через gpt-4o-transcribe модель
+- `POST /api/generate` - Генерация ответа через GPT-4o API
 
 ## Middleware
 

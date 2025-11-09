@@ -19,7 +19,7 @@ export const API_CONFIG = {
  * Аудио конфигурация
  */
 export const AUDIO_CONFIG = {
-  SAMPLE_RATE: 16000, // 16kHz для Whisper
+  SAMPLE_RATE: 16000, // 16kHz для OpenAI транскрипции
   CHANNELS: 1, // Mono
   BUFFER_SIZE: 4096,
   PROCESSING_INTERVAL: 5000, // 5 секунд

@@ -5,7 +5,7 @@ import { ValidationError } from '../middleware/error-handler';
 const transcribe = new Hono();
 
 // POST /api/transcribe
-// Transcribe audio using OpenAI Whisper API
+// Transcribe audio using OpenAI gpt-4o-transcribe model
 // Requirements: 2.3
 // Accepts raw binary WAV data in request body (Content-Type: audio/wav or application/octet-stream)
 transcribe.post('/', async (c) => {

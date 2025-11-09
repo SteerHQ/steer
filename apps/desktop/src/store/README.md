@@ -10,7 +10,7 @@ The `useAppStore` hook provides access to the application state and actions.
 
 - `isCapturing`: Boolean indicating if audio capture is active
 - `isProcessing`: Boolean indicating if audio is being processed
-- `currentTranscript`: Current transcript from Whisper API (or null)
+- `currentTranscript`: Current transcript from OpenAI transcription API (or null)
 - `currentResponse`: Current response from GPT-4o API (or null)
 - `overlayVisible`: Boolean indicating if overlay window is visible
 - `apiKeyConfigured`: Boolean indicating if OpenAI API key is configured

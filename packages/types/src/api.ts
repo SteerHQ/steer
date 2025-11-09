@@ -1,4 +1,4 @@
-export interface WhisperResponse {
+export interface TranscriptionResponse {
   text: string;
   language: string;
   duration: number;
@@ -8,6 +8,9 @@ export interface WhisperResponse {
     text: string;
   }>;
 }
+
+// Legacy alias for backward compatibility
+export type WhisperResponse = TranscriptionResponse;
 
 export interface GPTResponse {
   message: string;

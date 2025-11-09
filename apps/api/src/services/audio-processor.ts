@@ -31,7 +31,7 @@ export class AudioProcessor {
 
   /**
    * Convert PCM audio buffer to WAV format
-   * Creates proper WAV header for Whisper API compatibility
+   * Creates proper WAV header for OpenAI transcription API compatibility
    */
   async convertToWav(buffer: Uint8Array, sampleRate: number = this.DEFAULT_SAMPLE_RATE): Promise<Blob> {
     const channels = this.DEFAULT_CHANNELS;

@@ -32,7 +32,7 @@
       "allowDowngrades": false
     },
     "shortDescription": "Голосовой помощник для Windows",
-    "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI Whisper и предоставления кратких технических ответов через overlay-интерфейс.",
+    "longDescription": "VoiceAssistant - утилита для захвата системного аудио, распознавания русской речи через OpenAI gpt-4o-transcribe и предоставления кратких технических ответов через overlay-интерфейс.",
     "externalBin": [],
     "copyright": "Copyright (c) 2025 VoiceAssistant",
     "category": "Utility",
