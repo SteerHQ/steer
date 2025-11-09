@@ -244,6 +244,20 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     Ok(device_names)
 }
 
+/// Read WAV file and return its contents as bytes
+/// 
+/// # Arguments
+/// * `path` - Path to the WAV file
+/// 
+/// # Returns
+/// * `Result<Vec<u8>, String>` - File contents or error
+#[tauri::command]
+pub async fn read_wav_file(path: String) -> Result<Vec<u8>, String> {
+    use std::fs;
+    
+    fs::read(&path).map_err(|e| format!("Failed to read WAV file: {}", e))
+}
+
 /// Save audio buffer to WAV file for debugging
 /// 
 /// # Arguments

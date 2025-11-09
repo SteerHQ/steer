@@ -25,7 +25,25 @@ openai.post('/transcribe', async (c) => {
     // Convert audio array back to Blob (data is already in WAV format from /api/audio/process)
     const audioArray = new Uint8Array(body.audio);
     const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
- 
+
+    
+    // Save debug file
+    try {
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const os = await import('os');
+      
+      const debugDir = path.join(os.homedir(), 'Documents', 'VoiceAssistant', 'debug');
+      await fs.mkdir(debugDir, { recursive: true });
+      
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      const debugPath = path.join(debugDir, `transcribe_${timestamp}.wav`);
+      
+      await fs.writeFile(debugPath, Buffer.from(audioArray));
+      console.log('Debug WAV saved to:', debugPath);
+    } catch (debugError) {
+      console.warn('Failed to save debug file:', debugError);
+    }
 
     // Create OpenAI service instance
     const openaiService = new OpenAIService(apiKey);

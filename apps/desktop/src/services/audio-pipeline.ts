@@ -76,65 +76,40 @@ export class AudioPipeline {
   }
 
   /**
-   * Process audio buffer - convert PCM to WAV format
+   * Process audio buffer - convert PCM to WAV format using Tauri
+   * Uses save_audio_debug to create proper WAV file, then reads it back
    * Requirement: 2.1
    */
   private async processAudioBuffer(buffer: number[]): Promise<number[]> {
-    console.log('Converting PCM to WAV, size:', buffer.length, 'bytes');
+    console.log('Converting PCM to WAV using Tauri, size:', buffer.length, 'bytes');
     
-    // WAV file parameters
-    const sampleRate = 48000; // Match Tauri's sample rate
-    const numChannels = 1; // mono
-    const bitsPerSample = 16;
-    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
-    const blockAlign = numChannels * (bitsPerSample / 8);
-    const dataSize = buffer.length;
-    const headerSize = 44;
-    const fileSize = headerSize + dataSize;
-    
-    // Create WAV header
-    const wavBuffer = new Uint8Array(fileSize);
-    const view = new DataView(wavBuffer.buffer);
-    
-    // RIFF chunk descriptor
-    view.setUint8(0, 'R'.charCodeAt(0));
-    view.setUint8(1, 'I'.charCodeAt(0));
-    view.setUint8(2, 'F'.charCodeAt(0));
-    view.setUint8(3, 'F'.charCodeAt(0));
-    view.setUint32(4, fileSize - 8, true); // File size - 8
-    view.setUint8(8, 'W'.charCodeAt(0));
-    view.setUint8(9, 'A'.charCodeAt(0));
-    view.setUint8(10, 'V'.charCodeAt(0));
-    view.setUint8(11, 'E'.charCodeAt(0));
-    
-    // fmt sub-chunk
-    view.setUint8(12, 'f'.charCodeAt(0));
-    view.setUint8(13, 'm'.charCodeAt(0));
-    view.setUint8(14, 't'.charCodeAt(0));
-    view.setUint8(15, ' '.charCodeAt(0));
-    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
-    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
-    view.setUint16(22, numChannels, true); // NumChannels
-    view.setUint32(24, sampleRate, true); // SampleRate
-    view.setUint32(28, byteRate, true); // ByteRate
-    view.setUint16(32, blockAlign, true); // BlockAlign
-    view.setUint16(34, bitsPerSample, true); // BitsPerSample
-    
-    // data sub-chunk
-    view.setUint8(36, 'd'.charCodeAt(0));
-    view.setUint8(37, 'a'.charCodeAt(0));
-    view.setUint8(38, 't'.charCodeAt(0));
-    view.setUint8(39, 'a'.charCodeAt(0));
-    view.setUint32(40, dataSize, true); // Subchunk2Size
-    
-    // Copy audio data
-    wavBuffer.set(new Uint8Array(buffer), headerSize);
-    
-    // Verify header
-    const header = String.fromCharCode(wavBuffer[0], wavBuffer[1], wavBuffer[2], wavBuffer[3]);
-    console.log('Created WAV file:', wavBuffer.length, 'bytes, header:', header);
-    
-    return Array.from(wavBuffer);
+    try {
+      // Use Tauri's save_audio_debug to create a proper WAV file
+      const wavPath = await invoke<string>("save_audio_debug", {
+        buffer: buffer,
+        sampleRate: 48000,
+      });
+      
+      console.log('WAV file created at:', wavPath);
+      
+      // Read the WAV file back
+      const wavData = await invoke<number[]>("read_wav_file", {
+        path: wavPath,
+      });
+      
+      console.log('Read WAV file:', wavData.length, 'bytes');
+      
+      // Verify header
+      if (wavData.length > 4) {
+        const header = String.fromCharCode(wavData[0], wavData[1], wavData[2], wavData[3]);
+        console.log('WAV header:', header, 'First 12 bytes:', wavData.slice(0, 12));
+      }
+      
+      return wavData;
+    } catch (error) {
+      console.error('Failed to process audio with Tauri:', error);
+      throw new Error(`Failed to convert audio to WAV: ${error}`);
+    }
   }
 
   /**

@@ -26,6 +26,7 @@ fn main() {
             commands::get_capture_status,
             commands::get_audio_devices,
             commands::save_audio_debug,
+            commands::read_wav_file,
             commands::get_audio_level,
             commands::get_buffer_size,
         ])
