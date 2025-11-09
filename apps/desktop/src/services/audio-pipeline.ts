@@ -117,6 +117,12 @@ export class AudioPipeline {
    * Requirements: 2.1, 2.3
    */
   private async transcribeAudio(wavData: number[]): Promise<WhisperResponse> {
+    // Check if audio data is empty or too small
+    const MIN_WAV_SIZE = 1000; // Minimum 1KB for meaningful audio
+    if (!wavData || wavData.length < MIN_WAV_SIZE) {
+      throw new Error(`Audio data too small: ${wavData?.length || 0} bytes (minimum ${MIN_WAV_SIZE} bytes)`);
+    }
+
     // Verify WAV data before sending
     console.log('Sending to transcribe, size:', wavData.length, 'bytes');
     if (wavData.length > 4) {

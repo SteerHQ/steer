@@ -54,16 +54,27 @@ export class InterviewService {
    * Transcribe audio (wrapper for existing functionality)
    */
   async transcribeAudio(audioData: Uint8Array): Promise<string> {
-    logger.info('Transcribing audio');
+    // Check if audio data is empty or too small
+    const MIN_WAV_SIZE = 1000; // Minimum 1KB for meaningful audio
+    if (!audioData || audioData.length < MIN_WAV_SIZE) {
+      throw new Error(`Audio data too small: ${audioData?.length || 0} bytes (minimum ${MIN_WAV_SIZE} bytes)`);
+    }
+
+    logger.info('Transcribing audio', { size: audioData.length });
 
     try {
+      // Create a new Blob to avoid "Body already used" error
+      // Copy the data to ensure it's a proper ArrayBuffer
+      const buffer = new Uint8Array(audioData);
+      const blob = new Blob([buffer], { type: 'audio/wav' });
+      
       // Send raw binary data directly instead of JSON
       const response = await fetch('http://localhost:3000/api/transcribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'audio/wav',
         },
-        body: audioData as unknown as BodyInit,
+        body: blob,
       });
 
       if (!response.ok) {
@@ -83,5 +94,18 @@ export class InterviewService {
       logger.error('Failed to transcribe audio', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
+  }
+
+  /**
+   * Transcribe interviewer question from microphone
+   */
+  async transcribeQuestion(audioData: Uint8Array): Promise<string> {
+    logger.info('Transcribing interviewer question', { size: audioData.length });
+
+    // Use same transcription logic but mark as question
+    const transcript = await this.transcribeAudio(audioData);
+    
+    logger.info('Question transcribed', { question: transcript });
+    return transcript;
   }
 }

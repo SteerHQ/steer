@@ -56,7 +56,7 @@ export const Chat: React.FC<ChatProps> = ({ messages, isProcessing }) => {
             >
               <div className="message-header">
                 <span className="message-sender">
-                  {message.type === "user" ? "🎤 Вы" : "🤖 Ассистент"}
+                  {message.type === "user" ? "❓ Вопрос интервьюера" : "✅ Готовый ответ"}
                 </span>
                 <span className="message-time">
                   {formatTime(message.timestamp)}

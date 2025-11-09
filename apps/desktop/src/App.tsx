@@ -9,6 +9,7 @@ import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
+import { PushToTalk } from "./components/push-to-talk";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
@@ -16,6 +17,7 @@ import type { AppConfig } from "@steer/types";
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
+  const [isCandidateSpeaking, setIsCandidateSpeaking] = useState(false);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
@@ -222,6 +224,12 @@ function App() {
     // Проверяем, включен ли анализ разговоров
     const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
     
+    // Skip if candidate is speaking (answering the question)
+    if (isCandidateSpeaking) {
+      console.log("Candidate is speaking, skipping audio processing");
+      return;
+    }
+    
     // Skip if already processing or analysis is disabled
     if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current) {
       return;
@@ -230,14 +238,36 @@ function App() {
     try {
       setProcessing(true);
 
-      // Get audio data from Tauri
+      // Get audio data from Tauri (PCM format)
       const audioBuffer = await invoke<number[]>("get_audio_data");
       
       if (!audioBuffer || audioBuffer.length === 0) {
         return; // No audio data, skip silently
       }
 
-      const audioData = new Uint8Array(audioBuffer);
+      // Convert PCM to WAV format using Tauri
+      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes');
+      const wavPath = await invoke<string>("save_audio_debug", {
+        buffer: audioBuffer,
+        sampleRate: 48000,
+      });
+      
+      console.log('WAV file created at:', wavPath);
+      
+      // Read the WAV file back
+      const wavData = await invoke<number[]>("read_wav_file", {
+        path: wavPath,
+      });
+      
+      console.log('Read WAV file:', wavData.length, 'bytes');
+      
+      // Verify WAV header
+      if (wavData.length > 4) {
+        const header = String.fromCharCode(wavData[0], wavData[1], wavData[2], wavData[3]);
+        console.log('WAV header:', header === 'RIFF' ? '✓ Valid' : '✗ Invalid', header);
+      }
+
+      const audioData = new Uint8Array(wavData);
 
       // Transcribe audio
       const transcript = await interviewServiceRef.current.transcribeAudio(
@@ -270,8 +300,15 @@ function App() {
     } catch (error) {
       console.error("Audio pipeline error:", error);
 
-      // Only set error if it's not about empty audio (which is expected)
-      if (error instanceof Error && !error.message.includes("No audio data")) {
+      // Ignore errors about empty/small audio data (expected when no audio is captured)
+      if (error instanceof Error && 
+          (error.message.includes("No audio data") || 
+           error.message.includes("too small"))) {
+        return; // Skip silently
+      }
+
+      // Set error for other issues
+      if (error instanceof Error) {
         // Determine error code based on error message
         let errorCode = "PIPELINE_ERROR";
         if (error.message.includes("API key")) {
@@ -398,6 +435,16 @@ function App() {
           historyCount={interviewContext?.questions.length || 0}
         />
       </div>
+
+      {/* Speaking Toggle - показывается только в режиме интервью */}
+      {mode === 'interview' && (
+        <div style={{ marginTop: "16px" }}>
+          <PushToTalk
+            onSpeakingChange={setIsCandidateSpeaking}
+            disabled={!isCapturing}
+          />
+        </div>
+      )}
 
       <div style={{ marginTop: "12px" }}>
         <AudioVisualizer isActive={isCapturing} />
