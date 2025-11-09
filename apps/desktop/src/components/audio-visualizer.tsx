@@ -17,7 +17,8 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       return;
     }
 
-    // Poll audio level every 50ms for smooth animation
+    // Poll audio level every 100ms (10 times per second)
+    // This is enough for smooth animation while reducing IPC overhead
     const interval = setInterval(async () => {
       try {
         const level = await invoke<number>("get_audio_level");
@@ -26,7 +27,7 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         console.error("Failed to get audio level:", error);
         setAudioLevel(0);
       }
-    }, 50);
+    }, 100);
 
     return () => clearInterval(interval);
   }, [isActive]);

@@ -58,6 +58,7 @@ function App() {
   const lastVoiceTimeRef = useRef<number>(0);
   const silenceStartTimeRef = useRef<number>(0);
   const isSpeechActiveRef = useRef<boolean>(false);
+  const [speechState, setSpeechState] = useState<'idle' | 'speaking' | 'paused'>('idle');
 
   // Access state from the store
   const {
@@ -295,6 +296,7 @@ function App() {
           console.log('🎤 Speech started');
           isSpeechActiveRef.current = true;
           silenceStartTimeRef.current = 0;
+          setSpeechState('speaking');
         }
         return; // Continue accumulating
       }
@@ -305,6 +307,7 @@ function App() {
         if (silenceStartTimeRef.current === 0) {
           silenceStartTimeRef.current = now;
           console.log('🔇 Silence started, waiting...');
+          setSpeechState('paused');
         }
         
         // Wait for 2 seconds of silence before processing
@@ -317,9 +320,10 @@ function App() {
         }
         
         // 2 seconds of silence passed, process the accumulated audio
-        console.log('✅ Speech ended, processing accumulated audio');
+        console.log('✅ Speech ended, waiting 500ms for post-roll...');
         isSpeechActiveRef.current = false;
         silenceStartTimeRef.current = 0;
+        setSpeechState('idle');
         
         // Skip if already processing
         if (isProcessing) {
@@ -328,8 +332,13 @@ function App() {
         }
         
         setProcessing(true);
+        
+        // Wait 500ms to capture the tail of speech (post-roll)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('📥 Post-roll complete, getting audio data');
       } else {
         // No active speech, nothing to do
+        setSpeechState('idle');
         return;
       }
 
@@ -556,6 +565,19 @@ function App() {
 
       <div style={{ marginTop: "12px" }}>
         <AudioVisualizer isActive={isCapturing} />
+        {/* Speech state indicator */}
+        {mode === 'interview' && isCapturing && (
+          <div style={{ 
+            marginTop: "8px", 
+            textAlign: "center", 
+            fontSize: "12px",
+            color: speechState === 'speaking' ? '#4CAF50' : speechState === 'paused' ? '#FF9800' : '#666'
+          }}>
+            {speechState === 'speaking' && '🎤 Говорите...'}
+            {speechState === 'paused' && '⏸️ Пауза (ожидание завершения)'}
+            {speechState === 'idle' && '👂 Слушаю...'}
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1, marginTop: "20px", minHeight: 0 }}>
