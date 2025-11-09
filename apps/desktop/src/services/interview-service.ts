@@ -18,12 +18,15 @@ export class InterviewService {
   }
 
   /**
-   * Generate response with interview mode support
+   * Generate response with streaming (updates callback in real-time)
    */
-  async generateResponse(options: GenerateOptions): Promise<string> {
+  async generateResponseStream(
+    options: GenerateOptions,
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
     const { transcript, mode, context } = options;
 
-    logger.info('Generating response', { mode, hasContext: !!context });
+    logger.info('Generating response with streaming', { mode, hasContext: !!context });
 
     try {
       const requestBody: GenerateRequest = {
@@ -32,22 +35,73 @@ export class InterviewService {
         context,
       };
 
-      const response = await this.apiClient.post<{
-        success: boolean;
-        response: string;
-        mode: AssistantMode;
-      }>('/api/generate', requestBody);
+      const response = await fetch('http://localhost:3000/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-      if (!response.success) {
-        throw new Error('Failed to generate response');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to generate response');
       }
 
-      logger.info('Response generated successfully', { mode: response.mode });
-      return response.response;
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      const decoder = new TextDecoder();
+      let fullResponse = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6);
+            if (data === '[DONE]') {
+              logger.info('Streaming completed', { totalLength: fullResponse.length });
+              return fullResponse;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.chunk) {
+                fullResponse += parsed.chunk;
+                onChunk(fullResponse); // Update with full response so far
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
+      logger.info('Response generated successfully', { mode });
+      return fullResponse;
     } catch (error) {
       logger.error('Failed to generate response', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
+  }
+
+  /**
+   * Generate response with interview mode support (non-streaming fallback)
+   */
+  async generateResponse(options: GenerateOptions): Promise<string> {
+    // Use streaming but collect full response
+    let fullResponse = '';
+    await this.generateResponseStream(options, (response) => {
+      fullResponse = response;
+    });
+    return fullResponse;
   }
 
   /**

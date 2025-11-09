@@ -97,9 +97,25 @@ export const useAppStore = create<AppStore>((set) => ({
       };
     }),
 
-  // Add a message to chat
+  // Add a message to chat (or update last message if same type)
   addMessage: (type: "user" | "assistant" | "system", content: string) =>
     set((state) => {
+      const lastMessage = state.messages[state.messages.length - 1];
+      
+      // If last message is same type, update it (for streaming)
+      if (lastMessage && lastMessage.type === type && type === 'assistant') {
+        const updatedMessages = [...state.messages];
+        updatedMessages[updatedMessages.length - 1] = {
+          ...lastMessage,
+          content,
+          timestamp: new Date(),
+        };
+        return {
+          messages: updatedMessages,
+        };
+      }
+      
+      // Otherwise add new message
       const message: ChatMessage = {
         id: `${type}-${Date.now()}`,
         type,

@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "./store";
 import { Settings } from "./components/settings";
-import { OverlayWindow } from "./components/overlay-window";
 import { StatusIndicator } from "./components/status-indicator";
 import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
@@ -13,38 +12,6 @@ import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
-
-/**
- * Calculate audio level (RMS) from PCM buffer
- * Returns value from 0.0 (silence) to 1.0 (max volume)
- */
-function calculateAudioLevel(buffer: number[]): number {
-  if (!buffer || buffer.length === 0) {
-    return 0;
-  }
-
-  // PCM data is 16-bit signed integers (2 bytes per sample)
-  const sampleCount = Math.floor(buffer.length / 2);
-  let sum = 0;
-
-  for (let i = 0; i < sampleCount; i++) {
-    const idx = i * 2;
-    if (idx + 1 < buffer.length) {
-      // Convert bytes to i16 sample (little-endian)
-      const sample = (buffer[idx] | (buffer[idx + 1] << 8));
-      // Convert to signed 16-bit
-      const signedSample = sample > 32767 ? sample - 65536 : sample;
-      // Normalize to -1.0 to 1.0
-      const normalized = signedSample / 32768.0;
-      sum += normalized * normalized;
-    }
-  }
-
-  // Calculate RMS (Root Mean Square)
-  const rms = Math.sqrt(sum / sampleCount);
-  
-  return rms;
-}
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
@@ -64,8 +31,6 @@ function App() {
   const {
     isCapturing,
     isProcessing,
-    currentResponse,
-    overlayVisible,
     apiKeyConfigured,
     audioDeviceConnected,
     error,
@@ -76,7 +41,6 @@ function App() {
     setAudioDeviceConnected,
     setError,
     startCapture,
-    hideOverlay,
     setProcessing,
     setTranscript,
     setResponse,
@@ -385,17 +349,34 @@ function App() {
       // Set transcript in store (only for questions)
       setTranscript(transcript);
 
+      // Add question to chat immediately
+      addMessage('user', transcript);
+
       // Get context for interview mode
       const context = mode === 'interview' ? getInterviewContext() : undefined;
 
-      // Generate response with mode and context
-      const response = await interviewServiceRef.current.generateResponse({
-        transcript,
-        mode,
-        context,
-      });
+      // Generate response with streaming (updates chat in real-time)
+      console.log('⚡ Starting streaming response generation...');
+      console.time('⚡ Total response time');
+      
+      const response = await interviewServiceRef.current.generateResponseStream(
+        {
+          transcript,
+          mode,
+          context,
+        },
+        (partialResponse) => {
+          // Update response in real-time as chunks arrive
+          setResponse(partialResponse);
+          // Update last message in chat (bot response)
+          addMessage('assistant', partialResponse);
+        }
+      );
+      
+      console.timeEnd('⚡ Total response time');
+      console.log('✅ Streaming completed, final length:', response.length);
 
-      // Set response in store
+      // Set final response in store
       setResponse(response);
 
       // Add to interview context if in interview mode
@@ -571,17 +552,6 @@ function App() {
       <div style={{ flex: 1, marginTop: "20px", minHeight: 0 }}>
         <Chat messages={messages} isProcessing={isProcessing} />
       </div>
-
-      <OverlayWindow
-        message={
-          currentResponse ||
-          (error?.code === "OPENAI_ERROR" ? "Ошибка получения ответа" : "")
-        }
-        visible={overlayVisible || (error?.code === "OPENAI_ERROR" && !!error)}
-        autoHideDuration={config?.autoHideDuration || 10000}
-        onHide={hideOverlay}
-        isError={error?.code === "OPENAI_ERROR"}
-      />
 
       <div className="app-actions">
         <button
