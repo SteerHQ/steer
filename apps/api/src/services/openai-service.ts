@@ -50,7 +50,6 @@ export class OpenAIService {
             signal: controller.signal,
           }
         );
-        console.log(await response.text())
         clearTimeout(timeoutId);
 
         if (!response.ok) {
