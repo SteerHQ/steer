@@ -140,7 +140,7 @@ thread::spawn(move || {
 ## Итоговый код
 
 ```rust
-use tauri::{State, AppHandle, Emitter};
+use tauri::{State, AppHandle, Emitter, Manager};
 
 #[tauri::command]
 pub async fn start_audio_level_emitter(
