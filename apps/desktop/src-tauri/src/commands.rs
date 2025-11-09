@@ -1,4 +1,4 @@
-use crate::audio::{AudioCapture, AudioError};
+use crate::audio::AudioCapture;
 use std::sync::Mutex;
 use tauri::State;
 

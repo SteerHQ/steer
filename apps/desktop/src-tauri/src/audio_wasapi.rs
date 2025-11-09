@@ -35,7 +35,6 @@ impl From<windows::core::Error> for WasapiError {
 
 pub struct WasapiCapture {
     buffer: Arc<Mutex<Vec<u8>>>,
-    sample_rate: u32,
     is_capturing: Arc<Mutex<bool>>,
     capture_thread: Option<thread::JoinHandle<()>>,
 }
@@ -44,33 +43,13 @@ impl WasapiCapture {
     /// Create a new WASAPI loopback capture instance
     /// This captures all system audio without requiring virtual audio devices
     pub fn new() -> std::result::Result<Self, WasapiError> {
-            tracing::info!("Initializing WASAPI loopback capture");
-            
-            // Get default sample rate by initializing COM temporarily
-            let sample_rate = unsafe {
-                let _ = CoInitializeEx(None, COINIT_MULTITHREADED).ok();
-                
-                let enumerator: IMMDeviceEnumerator = CoCreateInstance(
-                    &MMDeviceEnumerator,
-                    None,
-                    CLSCTX_ALL,
-                )?;
-
-                let device = enumerator.GetDefaultAudioEndpoint(eRender, eConsole)?;
-                let audio_client: IAudioClient = device.Activate(CLSCTX_ALL, None)?;
-                let mix_format = audio_client.GetMixFormat()?;
-                let rate = (*mix_format).nSamplesPerSec;
-                
-                CoUninitialize();
-                rate
-            };
-
-            Ok(WasapiCapture {
-                buffer: Arc::new(Mutex::new(Vec::new())),
-                sample_rate,
-                is_capturing: Arc::new(Mutex::new(false)),
-                capture_thread: None,
-            })
+        tracing::info!("Initializing WASAPI loopback capture");
+        
+        Ok(WasapiCapture {
+            buffer: Arc::new(Mutex::new(Vec::new())),
+            is_capturing: Arc::new(Mutex::new(false)),
+            capture_thread: None,
+        })
     }
 
     /// Start capturing system audio via WASAPI loopback
@@ -263,10 +242,6 @@ impl WasapiCapture {
         buffer.clear();
     }
 
-    /// Get the sample rate
-    pub fn sample_rate(&self) -> u32 {
-        self.sample_rate
-    }
 }
 
 impl Drop for WasapiCapture {
