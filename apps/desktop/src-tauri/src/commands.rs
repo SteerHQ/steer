@@ -1,18 +1,104 @@
 use crate::audio::AudioCapture;
-use std::sync::Mutex;
-use tauri::State;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
+use tauri::{State, AppHandle, Emitter, Manager};
 
 /// Global state for audio capture
 pub struct AudioState {
     capture: Mutex<Option<AudioCapture>>,
+    level_emitter_running: Arc<Mutex<bool>>,
 }
 
 impl AudioState {
     pub fn new() -> Self {
         AudioState {
             capture: Mutex::new(None),
+            level_emitter_running: Arc::new(Mutex::new(false)),
         }
     }
+}
+
+/// Start audio level event emitter
+/// Emits audio level events every 100ms instead of polling
+#[tauri::command]
+pub async fn start_audio_level_emitter(
+    app: AppHandle,
+) -> Result<String, String> {
+    let state = app.state::<AudioState>();
+    let mut is_running = state.level_emitter_running.lock().unwrap();
+    
+    if *is_running {
+        return Ok("Audio level emitter already running".to_string());
+    }
+    
+    *is_running = true;
+    drop(is_running);
+    
+    let is_running_clone = Arc::clone(&state.level_emitter_running);
+    let app_clone = app.clone();
+    
+    thread::spawn(move || {
+        tracing::info!("Audio level emitter started");
+        
+        while *is_running_clone.lock().unwrap() {
+            // Get state from app handle
+            let state = app_clone.state::<AudioState>();
+            
+            // Calculate audio level
+            if let Ok(capture_guard) = state.capture.lock() {
+                if let Some(ref capture) = *capture_guard {
+                    let buffer = capture.get_buffer();
+                    
+                    if !buffer.is_empty() {
+                        // Calculate RMS for last 0.5 seconds
+                        const MAX_SAMPLES: usize = 48000;
+                        let total_samples = buffer.len() / 2;
+                        let samples_to_analyze = total_samples.min(MAX_SAMPLES);
+                        let start_offset = if total_samples > MAX_SAMPLES {
+                            (total_samples - MAX_SAMPLES) * 2
+                        } else {
+                            0
+                        };
+                        
+                        let mut sum: f64 = 0.0;
+                        for i in 0..samples_to_analyze {
+                            let idx = start_offset + (i * 2);
+                            if idx + 1 < buffer.len() {
+                                let sample = i16::from_le_bytes([buffer[idx], buffer[idx + 1]]);
+                                let normalized = sample as f64 / 32768.0;
+                                sum += normalized * normalized;
+                            }
+                        }
+                        
+                        let rms = (sum / samples_to_analyze as f64).sqrt();
+                        let level = (rms * 2.0).min(1.0) as f32;
+                        
+                        // Emit event
+                        let _ = app_clone.emit("audio-level", level);
+                    } else {
+                        // Emit zero level
+                        let _ = app_clone.emit("audio-level", 0.0f32);
+                    }
+                }
+            }
+            
+            thread::sleep(Duration::from_millis(100));
+        }
+        
+        tracing::info!("Audio level emitter stopped");
+    });
+    
+    Ok("Audio level emitter started".to_string())
+}
+
+/// Stop audio level event emitter
+#[tauri::command]
+pub async fn stop_audio_level_emitter(app: AppHandle) -> Result<String, String> {
+    let state = app.state::<AudioState>();
+    let mut is_running = state.level_emitter_running.lock().unwrap();
+    *is_running = false;
+    Ok("Audio level emitter stopped".to_string())
 }
 
 /// Start audio capture from specified device

@@ -29,6 +29,8 @@ fn main() {
             commands::read_wav_file,
             commands::get_audio_level,
             commands::get_buffer_size,
+            commands::start_audio_level_emitter,
+            commands::stop_audio_level_emitter,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

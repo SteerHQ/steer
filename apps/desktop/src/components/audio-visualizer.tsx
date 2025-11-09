@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "./audio-visualizer.css";
 
 interface AudioVisualizerProps {
@@ -10,7 +11,6 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   isActive,
 }) => {
   const [audioLevel, setAudioLevel] = useState(0);
-  const isUpdatingRef = useRef(false);
 
   useEffect(() => {
     if (!isActive) {
@@ -18,27 +18,25 @@ export const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       return;
     }
 
-    // Poll audio level every 100ms (10 times per second)
-    // This is enough for smooth animation while reducing IPC overhead
-    const interval = setInterval(async () => {
-      // Skip if previous call is still in progress
-      if (isUpdatingRef.current) {
-        return;
-      }
-      
-      isUpdatingRef.current = true;
-      try {
-        const level = await invoke<number>("get_audio_level");
-        setAudioLevel(level);
-      } catch (error) {
-        console.error("Failed to get audio level:", error);
-        setAudioLevel(0);
-      } finally {
-        isUpdatingRef.current = false;
-      }
-    }, 100);
+    // Start event emitter in Rust
+    invoke("start_audio_level_emitter").catch((error) => {
+      console.error("Failed to start audio level emitter:", error);
+    });
 
-    return () => clearInterval(interval);
+    // Listen for audio level events (push model instead of polling)
+    const unlisten = listen<number>("audio-level", (event) => {
+      setAudioLevel(event.payload);
+    });
+
+    return () => {
+      // Stop event emitter
+      invoke("stop_audio_level_emitter").catch((error) => {
+        console.error("Failed to stop audio level emitter:", error);
+      });
+      
+      // Unlisten from events
+      unlisten.then((fn) => fn());
+    };
   }, [isActive]);
 
   // Generate bars with center emphasis
