@@ -47,14 +47,18 @@ bun install
 
 ### 1. Настройка аудио (ВАЖНО!)
 
-**Если VB-Cable не работает:**
+**🎉 НОВИНКА: Теперь работает БЕЗ виртуальных устройств!**
 
-- ⚡ **Быстрое решение:** [AUDIO-QUICK-FIX.md](apps/desktop/AUDIO-QUICK-FIX.md) - решение за 2 минуты
-- 📖 **Подробное сравнение:** [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - все варианты
+- ⭐ **WASAPI Loopback** - захват системного аудио без установки драйверов!
+  - 🚀 [Быстрый старт](apps/desktop/WASAPI-QUICKSTART.md) - начните за 3 шага
+  - 📖 [Подробное руководство](apps/desktop/WASAPI-GUIDE.md)
+- ⚡ **Альтернативы:** [AUDIO-QUICK-FIX.md](apps/desktop/AUDIO-QUICK-FIX.md) - решение за 2 минуты
+- 📖 **Сравнение:** [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - все варианты
 
-**Рекомендуем:**
-1. Попробуйте **Stereo Mix** (встроен в Windows, не требует установки)
-2. Если нет Stereo Mix - установите **VoiceMeeter** (бесплатный и стабильный)
+**Рекомендуем (в порядке приоритета):**
+1. **WASAPI Loopback** - работает "из коробки", не требует установки ⭐ ЛУЧШИЙ ВАРИАНТ
+2. **Stereo Mix** - встроен в Windows, не требует установки
+3. **VoiceMeeter** - для продвинутых настроек (бесплатный и стабильный)
 
 ### 2. Использование режимов собеседования
 
@@ -95,11 +99,13 @@ bun run tauri:build
 ## Требования
 
 - Windows 10 (1809+) или Windows 11
-- **Виртуальное аудиоустройство** (выберите одно):
-  - Stereo Mix (встроен в Windows) - **РЕКОМЕНДУЕТСЯ**
+- **Аудио захват** (выберите один вариант):
+  - ⭐ **WASAPI Loopback** - встроен в Windows, не требует установки - **РЕКОМЕНДУЕТСЯ**
+  - Stereo Mix (встроен в Windows) - не требует установки
   - VoiceMeeter (бесплатный) - для продвинутых настроек
   - VB-Cable - если уже установлен
   - 📖 [Подробное сравнение и инструкции](apps/desktop/AUDIO-ALTERNATIVES.md)
+  - 📖 [Руководство по WASAPI](apps/desktop/WASAPI-GUIDE.md)
 - OpenAI API ключ
 - Bun.js 1.3.1+
 - Rust (для сборки Tauri)

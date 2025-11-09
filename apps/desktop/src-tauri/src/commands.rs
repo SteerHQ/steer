@@ -205,8 +205,16 @@ pub async fn get_audio_level(state: State<'_, AudioState>) -> Result<f32, String
 pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     use cpal::traits::{HostTrait, DeviceTrait};
     
-    let host = cpal::default_host();
     let mut device_names = Vec::new();
+    
+    // Add WASAPI Loopback as first option on Windows
+    #[cfg(windows)]
+    {
+        device_names.push("WASAPI Loopback (System Audio - No Virtual Device Needed)".to_string());
+        tracing::info!("Added WASAPI Loopback option");
+    }
+    
+    let host = cpal::default_host();
     
     // Get input devices
     tracing::info!("Enumerating input devices...");
@@ -256,7 +264,6 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
 pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<String, String> {
     use std::fs::File;
     use std::io::Write;
-    use std::path::PathBuf;
     
     // Create debug directory in user's documents
     let mut debug_path = dirs::document_dir()

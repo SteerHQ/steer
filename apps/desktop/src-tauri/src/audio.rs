@@ -2,11 +2,15 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use cpal::{Device, StreamConfig};
 use std::sync::{Arc, Mutex};
 
+#[cfg(windows)]
+use crate::audio_wasapi::{WasapiCapture, WasapiError};
+
 #[derive(Debug)]
 pub enum AudioError {
     DeviceNotFound(String),
     StreamError(String),
     ConfigError(String),
+    WasapiError(String),
 }
 
 impl std::fmt::Display for AudioError {
@@ -15,28 +19,64 @@ impl std::fmt::Display for AudioError {
             AudioError::DeviceNotFound(msg) => write!(f, "Device not found: {}", msg),
             AudioError::StreamError(msg) => write!(f, "Stream error: {}", msg),
             AudioError::ConfigError(msg) => write!(f, "Config error: {}", msg),
+            AudioError::WasapiError(msg) => write!(f, "WASAPI error: {}", msg),
         }
+    }
+}
+
+#[cfg(windows)]
+impl From<WasapiError> for AudioError {
+    fn from(err: WasapiError) -> Self {
+        AudioError::WasapiError(err.to_string())
     }
 }
 
 impl std::error::Error for AudioError {}
 
+pub enum CaptureBackend {
+    Cpal {
+        device: Device,
+        buffer: Arc<Mutex<Vec<u8>>>,
+        is_capturing: Arc<Mutex<bool>>,
+    },
+    #[cfg(windows)]
+    Wasapi(WasapiCapture),
+}
+
 pub struct AudioCapture {
-    device: Device,
-    buffer: Arc<Mutex<Vec<u8>>>,
+    backend: CaptureBackend,
     sample_rate: u32,
-    is_capturing: Arc<Mutex<bool>>,
 }
 
 impl AudioCapture {
-    /// Create a new AudioCapture instance for the specified device
+    /// Create a new AudioCapture instance
     /// 
     /// # Arguments
-    /// * `device_name` - Name of the audio device (e.g., "VB-Cable")
+    /// * `device_name` - Name of the audio device
+    ///   - "WASAPI Loopback" - Use Windows WASAPI loopback (no virtual device needed)
+    ///   - Other names - Use CPAL with specified device (VB-Cable, Stereo Mix, etc.)
     /// 
     /// # Returns
     /// * `Result<Self, AudioError>` - AudioCapture instance or error
     pub fn new(device_name: &str) -> Result<Self, AudioError> {
+        // Check if user wants WASAPI loopback
+        #[cfg(windows)]
+        if device_name.to_lowercase().contains("wasapi") || device_name.to_lowercase().contains("loopback") {
+            tracing::info!("Using WASAPI loopback mode");
+            let wasapi = WasapiCapture::new()?;
+            let sample_rate = wasapi.sample_rate();
+            return Ok(AudioCapture {
+                backend: CaptureBackend::Wasapi(wasapi),
+                sample_rate,
+            });
+        }
+        
+        // Fall back to CPAL for specific devices
+        Self::new_cpal(device_name)
+    }
+    
+    /// Create a new AudioCapture instance using CPAL
+    fn new_cpal(device_name: &str) -> Result<Self, AudioError> {
         let host = cpal::default_host();
         
         // List all available devices for debugging
@@ -127,10 +167,12 @@ impl AudioCapture {
         let sample_rate = config.sample_rate().0;
 
         Ok(AudioCapture {
-            device,
-            buffer: Arc::new(Mutex::new(Vec::new())),
+            backend: CaptureBackend::Cpal {
+                device,
+                buffer: Arc::new(Mutex::new(Vec::new())),
+                is_capturing: Arc::new(Mutex::new(false)),
+            },
             sample_rate,
-            is_capturing: Arc::new(Mutex::new(false)),
         })
     }
 
@@ -141,85 +183,91 @@ impl AudioCapture {
     /// # Returns
     /// * `Result<(), AudioError>` - Success or error
     pub fn start_capture(&mut self) -> Result<(), AudioError> {
-        let mut is_capturing = self.is_capturing.lock().unwrap();
-        if *is_capturing {
-            return Ok(()); // Already capturing
+        match &mut self.backend {
+            #[cfg(windows)]
+            CaptureBackend::Wasapi(wasapi) => {
+                wasapi.start_capture()?;
+                Ok(())
+            }
+            CaptureBackend::Cpal { device, buffer, is_capturing } => {
+                let mut is_capturing_guard = is_capturing.lock().unwrap();
+                if *is_capturing_guard {
+                    return Ok(()); // Already capturing
+                }
+
+                // Get the default configuration from the device
+                let supported_config = device
+                    .default_input_config()
+                    .map_err(|e| {
+                        let err = AudioError::ConfigError(format!("Failed to get default config: {}", e));
+                        tracing::error!("{}", err);
+                        err
+                    })?;
+
+                tracing::info!("Using device config: {:?}", supported_config);
+                
+                let config: StreamConfig = supported_config.into();
+
+                let buffer_clone = Arc::clone(buffer);
+                let err_buffer = Arc::clone(buffer);
+                let is_capturing_clone = Arc::clone(is_capturing);
+
+                // Build the input stream with f32 samples (most common format)
+                let stream = device
+                    .build_input_stream(
+                        &config,
+                        move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                            // Convert f32 samples to i16 PCM bytes
+                            let mut buffer = buffer_clone.lock().unwrap();
+                            for &sample in data.iter() {
+                                // Convert f32 (-1.0 to 1.0) to i16 (-32768 to 32767)
+                                let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
+                                let bytes = sample_i16.to_le_bytes();
+                                buffer.extend_from_slice(&bytes);
+                            }
+                            
+                            // Limit buffer to 10 seconds of audio
+                            const MAX_BUFFER_SIZE: usize = 960_000;
+                            if buffer.len() > MAX_BUFFER_SIZE {
+                                let len = buffer.len();
+                                buffer.drain(0..(len - MAX_BUFFER_SIZE));
+                            }
+                        },
+                        move |err| {
+                            tracing::error!("Audio stream error: {}", err);
+                            // Clear buffer on error
+                            if let Ok(mut buf) = err_buffer.lock() {
+                                buf.clear();
+                            }
+                            if let Ok(mut capturing) = is_capturing_clone.lock() {
+                                *capturing = false;
+                            }
+                        },
+                        None,
+                    )
+                    .map_err(|e| {
+                        let err = AudioError::StreamError(format!("Failed to build stream: {}", e));
+                        tracing::error!("{}", err);
+                        err
+                    })?;
+
+                // Start the stream
+                stream
+                    .play()
+                    .map_err(|e| {
+                        let err = AudioError::StreamError(format!("Failed to start stream: {}", e));
+                        tracing::error!("{}", err);
+                        err
+                    })?;
+
+                *is_capturing_guard = true;
+                
+                // Leak the stream to keep it alive
+                std::mem::forget(stream);
+
+                Ok(())
+            }
         }
-
-        // Get the default configuration from the device
-        let supported_config = self.device
-            .default_input_config()
-            .map_err(|e| {
-                let err = AudioError::ConfigError(format!("Failed to get default config: {}", e));
-                tracing::error!("{}", err);
-                err
-            })?;
-
-        tracing::info!("Using device config: {:?}", supported_config);
-        
-        let config: StreamConfig = supported_config.into();
-
-        let buffer = Arc::clone(&self.buffer);
-        let err_buffer = Arc::clone(&self.buffer);
-        let is_capturing_clone = Arc::clone(&self.is_capturing);
-
-        // Build the input stream with f32 samples (most common format)
-        let stream = self
-            .device
-            .build_input_stream(
-                &config,
-                move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                    // Convert f32 samples to i16 PCM bytes
-                    let mut buffer = buffer.lock().unwrap();
-                    for &sample in data.iter() {
-                        // Convert f32 (-1.0 to 1.0) to i16 (-32768 to 32767)
-                        let sample_i16 = (sample * 32767.0).clamp(-32768.0, 32767.0) as i16;
-                        let bytes = sample_i16.to_le_bytes();
-                        buffer.extend_from_slice(&bytes);
-                    }
-                    
-                    // Limit buffer to 10 seconds of audio
-                    // Approximate: 48000 samples/sec * 2 bytes/sample * 10 seconds = 960000 bytes
-                    const MAX_BUFFER_SIZE: usize = 960_000;
-                    if buffer.len() > MAX_BUFFER_SIZE {
-                        let len = buffer.len();
-                        buffer.drain(0..(len - MAX_BUFFER_SIZE));
-                    }
-                },
-                move |err| {
-                    tracing::error!("Audio stream error: {}", err);
-                    // Clear buffer on error
-                    if let Ok(mut buf) = err_buffer.lock() {
-                        buf.clear();
-                    }
-                    if let Ok(mut capturing) = is_capturing_clone.lock() {
-                        *capturing = false;
-                    }
-                },
-                None,
-            )
-            .map_err(|e| {
-                let err = AudioError::StreamError(format!("Failed to build stream: {}", e));
-                tracing::error!("{}", err);
-                err
-            })?;
-
-        // Start the stream
-        stream
-            .play()
-            .map_err(|e| {
-                let err = AudioError::StreamError(format!("Failed to start stream: {}", e));
-                tracing::error!("{}", err);
-                err
-            })?;
-
-        *is_capturing = true;
-        
-        // Leak the stream to keep it alive (it will run until program exits)
-        // This is necessary because Stream is not Send and cannot be stored in AudioCapture
-        std::mem::forget(stream);
-
-        Ok(())
     }
 
     /// Stop capturing audio
@@ -227,9 +275,18 @@ impl AudioCapture {
     /// # Returns
     /// * `Result<(), AudioError>` - Success or error
     pub fn stop_capture(&mut self) -> Result<(), AudioError> {
-        let mut is_capturing = self.is_capturing.lock().unwrap();
-        *is_capturing = false;
-        Ok(())
+        match &mut self.backend {
+            #[cfg(windows)]
+            CaptureBackend::Wasapi(wasapi) => {
+                wasapi.stop_capture()?;
+                Ok(())
+            }
+            CaptureBackend::Cpal { is_capturing, .. } => {
+                let mut is_capturing = is_capturing.lock().unwrap();
+                *is_capturing = false;
+                Ok(())
+            }
+        }
     }
 
     /// Get the current audio buffer contents
@@ -237,14 +294,26 @@ impl AudioCapture {
     /// # Returns
     /// * `Vec<u8>` - Copy of the buffer data
     pub fn get_buffer(&self) -> Vec<u8> {
-        let buffer = self.buffer.lock().unwrap();
-        buffer.clone()
+        match &self.backend {
+            #[cfg(windows)]
+            CaptureBackend::Wasapi(wasapi) => wasapi.get_buffer(),
+            CaptureBackend::Cpal { buffer, .. } => {
+                let buffer = buffer.lock().unwrap();
+                buffer.clone()
+            }
+        }
     }
 
     /// Clear the audio buffer
     pub fn clear_buffer(&mut self) {
-        let mut buffer = self.buffer.lock().unwrap();
-        buffer.clear();
+        match &mut self.backend {
+            #[cfg(windows)]
+            CaptureBackend::Wasapi(wasapi) => wasapi.clear_buffer(),
+            CaptureBackend::Cpal { buffer, .. } => {
+                let mut buffer = buffer.lock().unwrap();
+                buffer.clear();
+            }
+        }
     }
 
     /// Get the sample rate of the audio capture

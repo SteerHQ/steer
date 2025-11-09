@@ -2,6 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod audio;
+#[cfg(windows)]
+mod audio_wasapi;
 mod commands;
 mod logger;
 
