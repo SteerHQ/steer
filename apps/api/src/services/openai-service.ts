@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { generateText } from "ai";
+import { generateText, streamText } from "ai";
 import type { WhisperResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
@@ -154,6 +154,30 @@ export class OpenAIService {
         );
       }
     });
+  }
+
+  /**
+   * Generate response with streaming (for faster perceived response time)
+   * Returns an async generator that yields text chunks
+   */
+  async *generateResponseStream(
+    transcript: string,
+    mode: 'general' | 'interview' | 'algorithm' | 'cheatsheet' = 'general',
+    context?: Array<{ question: string; answer: string }>
+  ): AsyncGenerator<string, void, unknown> {
+    const systemPrompt = this.getSystemPrompt(mode);
+    const enhancedPrompt = this.buildPrompt(transcript, mode, context);
+
+    const { textStream } = await streamText({
+      model: this.openai("gpt-5"),
+      system: systemPrompt,
+      prompt: enhancedPrompt,
+      maxRetries: 0,
+    });
+
+    for await (const chunk of textStream) {
+      yield chunk;
+    }
   }
 
   /**

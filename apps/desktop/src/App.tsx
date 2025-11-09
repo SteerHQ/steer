@@ -310,8 +310,8 @@ function App() {
           setSpeechState('paused');
         }
         
-        // Wait for 2 seconds of silence before processing
-        const SILENCE_DURATION = 2000; // 2 seconds
+        // Wait for 1.5 seconds of silence before processing (optimized)
+        const SILENCE_DURATION = 1500; // 1.5 seconds (was 2 seconds)
         const silenceDuration = now - silenceStartTimeRef.current;
         
         if (silenceDuration < SILENCE_DURATION) {
@@ -352,27 +352,15 @@ function App() {
       
       console.log(`📊 Processing ${audioBuffer.length} bytes of accumulated audio`);
 
-      // Convert PCM to WAV format using Tauri
-      console.log('Converting PCM to WAV, size:', audioBuffer.length, 'bytes');
-      const wavPath = await invoke<string>("save_audio_debug", {
+      // Convert PCM to WAV format in memory (fast, no disk I/O)
+      console.time('⚡ PCM to WAV conversion');
+      const wavData = await invoke<number[]>("convert_pcm_to_wav", {
         buffer: audioBuffer,
         sampleRate: 48000,
       });
+      console.timeEnd('⚡ PCM to WAV conversion');
       
-      console.log('WAV file created at:', wavPath);
-      
-      // Read the WAV file back
-      const wavData = await invoke<number[]>("read_wav_file", {
-        path: wavPath,
-      });
-      
-      console.log('Read WAV file:', wavData.length, 'bytes');
-      
-      // Verify WAV header
-      if (wavData.length > 4) {
-        const header = String.fromCharCode(wavData[0], wavData[1], wavData[2], wavData[3]);
-        console.log('WAV header:', header === 'RIFF' ? '✓ Valid' : '✗ Invalid', header);
-      }
+      console.log('✅ WAV data ready:', wavData.length, 'bytes');
 
       const audioData = new Uint8Array(wavData);
 

@@ -339,6 +339,50 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
     Ok(device_names)
 }
 
+/// Convert PCM buffer to WAV format in memory (fast, no disk I/O)
+/// 
+/// # Arguments
+/// * `buffer` - PCM audio data (16-bit mono)
+/// * `sample_rate` - Sample rate of the audio
+/// 
+/// # Returns
+/// * `Result<Vec<u8>, String>` - WAV file data or error
+#[tauri::command]
+pub async fn convert_pcm_to_wav(buffer: Vec<u8>, sample_rate: u32) -> Result<Vec<u8>, String> {
+    // WAV header parameters
+    let num_channels: u16 = 1; // mono
+    let bits_per_sample: u16 = 16;
+    let byte_rate = sample_rate * num_channels as u32 * bits_per_sample as u32 / 8;
+    let block_align = num_channels * bits_per_sample / 8;
+    let data_size = buffer.len() as u32;
+    
+    let mut wav_data = Vec::with_capacity(44 + buffer.len());
+    
+    // RIFF header
+    wav_data.extend_from_slice(b"RIFF");
+    wav_data.extend_from_slice(&(36 + data_size).to_le_bytes());
+    wav_data.extend_from_slice(b"WAVE");
+    
+    // fmt chunk
+    wav_data.extend_from_slice(b"fmt ");
+    wav_data.extend_from_slice(&16u32.to_le_bytes()); // chunk size
+    wav_data.extend_from_slice(&1u16.to_le_bytes()); // audio format (PCM)
+    wav_data.extend_from_slice(&num_channels.to_le_bytes());
+    wav_data.extend_from_slice(&sample_rate.to_le_bytes());
+    wav_data.extend_from_slice(&byte_rate.to_le_bytes());
+    wav_data.extend_from_slice(&block_align.to_le_bytes());
+    wav_data.extend_from_slice(&bits_per_sample.to_le_bytes());
+    
+    // data chunk
+    wav_data.extend_from_slice(b"data");
+    wav_data.extend_from_slice(&data_size.to_le_bytes());
+    wav_data.extend_from_slice(&buffer);
+    
+    tracing::debug!("Converted {} bytes PCM to {} bytes WAV in memory", buffer.len(), wav_data.len());
+    
+    Ok(wav_data)
+}
+
 /// Read WAV file and return its contents as bytes
 /// 
 /// # Arguments

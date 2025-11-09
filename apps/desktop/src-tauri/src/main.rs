@@ -27,6 +27,7 @@ fn main() {
             commands::get_audio_devices,
             commands::save_audio_debug,
             commands::read_wav_file,
+            commands::convert_pcm_to_wav,
             commands::get_audio_level,
             commands::get_buffer_size,
             commands::start_audio_level_emitter,
