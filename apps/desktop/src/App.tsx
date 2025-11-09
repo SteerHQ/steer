@@ -9,7 +9,6 @@ import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
-import { PushToTalk } from "./components/push-to-talk";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
@@ -50,7 +49,6 @@ function calculateAudioLevel(buffer: number[]): number {
 function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
-  const [isCandidateSpeaking, setIsCandidateSpeaking] = useState(false);
   const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
@@ -259,12 +257,6 @@ function App() {
     // Проверяем, включен ли анализ разговоров
     const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
     
-    // Skip if candidate is speaking (answering the question)
-    if (isCandidateSpeaking) {
-      console.log("Candidate is speaking, skipping audio processing");
-      return;
-    }
-    
     // Skip if already processing or analysis is disabled
     if (!analysisEnabled || isProcessing || !audioPipelineRef.current || !interviewServiceRef.current) {
       return;
@@ -324,7 +316,20 @@ function App() {
         audioData
       );
 
-      // Set transcript in store
+      console.log('Transcript:', transcript);
+
+      // Detect if this is a question that needs an answer
+      const isQuestion = await interviewServiceRef.current.detectQuestion(transcript);
+      
+      console.log('Is question:', isQuestion);
+
+      if (!isQuestion) {
+        console.log('Not a question, skipping response generation');
+        addMessage('system', `Обнаружена речь (не вопрос): "${transcript}"`);
+        return;
+      }
+
+      // Set transcript in store (only for questions)
       setTranscript(transcript);
 
       // Get context for interview mode
@@ -490,16 +495,6 @@ function App() {
       {mode === 'interview' && (
         <div style={{ marginTop: "16px" }}>
           <VoiceSensitivity currentLevel={currentAudioLevel} />
-        </div>
-      )}
-
-      {/* Speaking Toggle - показывается только в режиме интервью */}
-      {mode === 'interview' && (
-        <div style={{ marginTop: "16px" }}>
-          <PushToTalk
-            onSpeakingChange={setIsCandidateSpeaking}
-            disabled={!isCapturing}
-          />
         </div>
       )}
 

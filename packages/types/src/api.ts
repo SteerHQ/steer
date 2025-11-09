@@ -29,3 +29,9 @@ export interface GenerateRequest {
     answer: string;
   }>;
 }
+
+export interface DetectQuestionResponse {
+  success: boolean;
+  isQuestion: boolean;
+  transcript: string;
+}

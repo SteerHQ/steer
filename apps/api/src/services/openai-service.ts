@@ -79,6 +79,44 @@ export class OpenAIService {
   }
 
   /**
+   * Detect if transcript contains a question that needs an answer
+   */
+  async detectQuestion(transcript: string): Promise<boolean> {
+    return this.withRetry(async () => {
+      try {
+        const { text } = await generateText({
+          model: this.openai("gpt-5-mini"),
+          system: `Ты - детектор вопросов на техническом собеседовании.
+Твоя задача: определить, является ли текст ВОПРОСОМ, на который нужно дать ответ.
+
+ВОПРОС (отвечай "YES"):
+- Прямые вопросы: "Что такое React?", "Расскажите о себе"
+- Просьбы объяснить: "Объясните разницу между...", "Опишите процесс..."
+- Задачи: "Напишите функцию...", "Как бы вы решили..."
+- Вопросы с "как", "что", "почему", "когда", "где"
+
+НЕ ВОПРОС (отвечай "NO"):
+- Приветствия: "Привет", "Здравствуйте"
+- Утверждения: "Хорошо", "Понятно", "Спасибо"
+- Шум/мусор: неразборчивая речь, фоновые звуки
+- Короткие фразы без смысла (меньше 3 слов)
+- Технические артефакты: "[музыка]", "[шум]"
+
+Отвечай ТОЛЬКО "YES" или "NO".`,
+          prompt: `Текст: "${transcript}"`,
+          maxRetries: 0,
+        });
+
+        return text.trim().toUpperCase() === 'YES';
+      } catch (error: any) {
+        console.error('Question detection error:', error);
+        // В случае ошибки считаем что это вопрос (безопаснее)
+        return true;
+      }
+    });
+  }
+
+  /**
    * Generate response using OpenAI GPT-4o API with Vercel AI SDK
    * Requirements: 3.1, 3.2, 3.5
    */

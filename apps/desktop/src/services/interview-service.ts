@@ -97,6 +97,32 @@ export class InterviewService {
   }
 
   /**
+   * Detect if transcript contains a question
+   */
+  async detectQuestion(transcript: string): Promise<boolean> {
+    logger.info('Detecting question', { transcript });
+
+    try {
+      const response = await this.apiClient.post<{
+        success: boolean;
+        isQuestion: boolean;
+        transcript: string;
+      }>('/api/detect-question', { transcript });
+
+      if (!response.success) {
+        throw new Error('Failed to detect question');
+      }
+
+      logger.info('Question detection result', { isQuestion: response.isQuestion });
+      return response.isQuestion;
+    } catch (error) {
+      logger.error('Failed to detect question', error instanceof Error ? error : new Error(String(error)));
+      // В случае ошибки считаем что это вопрос (безопаснее)
+      return true;
+    }
+  }
+
+  /**
    * Transcribe interviewer question from microphone
    */
   async transcribeQuestion(audioData: Uint8Array): Promise<string> {
