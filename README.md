@@ -55,10 +55,17 @@ bun install
 - ⚡ **Альтернативы:** [AUDIO-QUICK-FIX.md](apps/desktop/AUDIO-QUICK-FIX.md) - решение за 2 минуты
 - 📖 **Сравнение:** [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - все варианты
 
+<<<<<<< HEAD
 **Рекомендуем (в порядке приоритета):**
 1. **WASAPI Loopback** - работает "из коробки", не требует установки ⭐ ЛУЧШИЙ ВАРИАНТ
 2. **Stereo Mix** - встроен в Windows, не требует установки
 3. **VoiceMeeter** - для продвинутых настроек (бесплатный и стабильный)
+=======
+**Рекомендуем:**
+
+1. Попробуйте **Stereo Mix** (встроен в Windows, не требует установки)
+2. Если нет Stereo Mix - установите **VoiceMeeter** (бесплатный и стабильный)
+>>>>>>> 8db552a9ae7e7aea2f12edaf098a58e9ba504b4f
 
 ### 2. Использование режимов собеседования
 
@@ -154,7 +161,6 @@ bun run tauri:build
 - Автоматические retry механизмы
 - Graceful degradation
 
-
 ## 📚 Документация
 
 Полный список всей документации проекта: **[DOCS-INDEX.md](DOCS-INDEX.md)**
@@ -162,21 +168,27 @@ bun run tauri:build
 ### Быстрые ссылки
 
 #### Настройка аудио
+
+- [АУДИО-ДОКУМЕНТАЦИЯ.md](apps/desktop/АУДИО-ДОКУМЕНТАЦИЯ.md) - **Полный индекс документации**
+- [МИКРОФОН-VB-CABLE.md](apps/desktop/МИКРОФОН-VB-CABLE.md) - Запись с микрофона
+- [СХЕМА-VB-CABLE.md](apps/desktop/СХЕМА-VB-CABLE.md) - Визуальные схемы
 - [AUDIO-QUICK-FIX.md](apps/desktop/AUDIO-QUICK-FIX.md) - Решение за 2 минуты
 - [AUDIO-ALTERNATIVES.md](apps/desktop/AUDIO-ALTERNATIVES.md) - Сравнение вариантов
-- [AUDIO-CHEATSHEET.md](apps/desktop/AUDIO-CHEATSHEET.md) - Шпаргалка
 
 #### Начало работы
+
 - [LOCKEDIN-QUICKSTART.md](LOCKEDIN-QUICKSTART.md) - Быстрый старт
 - [docs/quick-start-interview.md](docs/quick-start-interview.md) - Для собеседований
 - [docs/interview-modes.md](docs/interview-modes.md) - Режимы работы
 
 #### Отладка
+
 - [apps/desktop/HOW-TO-DEBUG.md](apps/desktop/HOW-TO-DEBUG.md) - Пошаговая отладка
 - [apps/desktop/README-DEBUG.md](apps/desktop/README-DEBUG.md) - Компонент отладки
 - [docs/audio-debugging.md](docs/audio-debugging.md) - Техническая документация
 
 #### Разработка
+
 - [CONTRIBUTING.md](CONTRIBUTING.md) - Как внести вклад
 - [LOCKEDIN-FEATURES.md](LOCKEDIN-FEATURES.md) - Roadmap
 - [apps/desktop/CHEATSHEET.md](apps/desktop/CHEATSHEET.md) - Шпаргалка разработчика

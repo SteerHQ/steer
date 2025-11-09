@@ -2,7 +2,8 @@
   padding: 20px;
   max-width: 800px;
   margin: 0 auto;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 .debug-header {
@@ -281,8 +282,32 @@
   font-size: 14px;
 }
 
+.device-info-box {
+  background: #d1ecf1;
+  border: 2px solid #17a2b8;
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
+  color: #0c5460;
+  font-size: 14px;
+}
+
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-5px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(5px);
+  }
 }
