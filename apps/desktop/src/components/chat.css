@@ -77,6 +77,11 @@
   align-self: flex-start;
 }
 
+.system-message {
+  align-self: center;
+  max-width: 90%;
+}
+
 .message-header {
   display: flex;
   justify-content: space-between;
@@ -96,6 +101,10 @@
 
 .assistant-message .message-sender {
   color: #764ba2;
+}
+
+.system-message .message-sender {
+  color: #059669;
 }
 
 .message-time {
@@ -121,6 +130,14 @@
   background: #f3f4f6;
   color: #1f2937;
   border-bottom-left-radius: 4px;
+}
+
+.system-message .message-content {
+  background: #d1fae5;
+  color: #065f46;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 13px;
 }
 
 .processing .message-content {

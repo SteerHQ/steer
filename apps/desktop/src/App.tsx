@@ -81,6 +81,7 @@ function App() {
     addToInterviewContext,
     clearInterviewContext,
     getInterviewContext,
+    addMessage,
   } = useAppStore();
 
   // Initialize application on mount
@@ -552,12 +553,12 @@ function App() {
                   buffer: Array.from(buffer),
                   sampleRate: 48000,
                 });
-                alert(`Аудио сохранено в:\n${path}`);
+                addMessage('system', `Аудио сохранено в:\n${path}`);
               } else {
-                alert("Нет аудио данных для сохранения");
+                addMessage('system', 'Нет аудио данных для сохранения');
               }
             } catch (error) {
-              alert(`Ошибка сохранения: ${error}`);
+              addMessage('system', `Ошибка сохранения: ${error}`);
             }
           }}
           className="btn btn-secondary"

@@ -4,7 +4,7 @@ import { ErrorResponse } from "@steer/types";
 
 export interface ChatMessage {
   id: string;
-  type: "user" | "assistant";
+  type: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
 }
@@ -18,7 +18,7 @@ export interface AppStore extends AppState {
   stopCapture: () => void;
   setTranscript: (transcript: string) => void;
   setResponse: (response: string) => void;
-  addMessage: (type: "user" | "assistant", content: string) => void;
+  addMessage: (type: "user" | "assistant" | "system", content: string) => void;
   clearMessages: () => void;
   showOverlay: () => void;
   hideOverlay: () => void;
@@ -98,7 +98,7 @@ export const useAppStore = create<AppStore>((set) => ({
     }),
 
   // Add a message to chat
-  addMessage: (type: "user" | "assistant", content: string) =>
+  addMessage: (type: "user" | "assistant" | "system", content: string) =>
     set((state) => {
       const message: ChatMessage = {
         id: `${type}-${Date.now()}`,

@@ -3,7 +3,7 @@ import "./chat.css";
 
 export interface ChatMessage {
   id: string;
-  type: "user" | "assistant";
+  type: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
 }
@@ -51,12 +51,20 @@ export const Chat: React.FC<ChatProps> = ({ messages, isProcessing }) => {
             <div
               key={message.id}
               className={`chat-message ${
-                message.type === "user" ? "user-message" : "assistant-message"
+                message.type === "user" 
+                  ? "user-message" 
+                  : message.type === "system"
+                  ? "system-message"
+                  : "assistant-message"
               }`}
             >
               <div className="message-header">
                 <span className="message-sender">
-                  {message.type === "user" ? "❓ Вопрос интервьюера" : "✅ Готовый ответ"}
+                  {message.type === "user" 
+                    ? "❓ Вопрос интервьюера" 
+                    : message.type === "system"
+                    ? "ℹ️ Система"
+                    : "✅ Готовый ответ"}
                 </span>
                 <span className="message-time">
                   {formatTime(message.timestamp)}
