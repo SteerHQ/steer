@@ -42,14 +42,6 @@ pub async fn start_audio_capture(
         Ok(capture) => {
             *capture_guard = Some(capture);
         }
-        Err(AudioError::DeviceNotFound(msg)) => {
-            let err_msg = format!(
-                "Audio device '{}' not found. Details: {}",
-                device_name, msg
-            );
-            tracing::error!("{}", err_msg);
-            return Err(err_msg);
-        }
         Err(e) => {
             let err_msg = format!("Failed to initialize audio capture: {}", e);
             tracing::error!("{}", err_msg);
@@ -227,7 +219,7 @@ pub async fn get_audio_devices() -> Result<Vec<String>, String> {
         }
     }
     
-    // Get output devices (for loopback capture like VB-Cable)
+    // Get output devices (for loopback capture)
     tracing::info!("Enumerating output devices...");
     if let Ok(devices) = host.output_devices() {
         for device in devices {

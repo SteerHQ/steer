@@ -58,7 +58,7 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
         <div className={`status-item ${audioDeviceConnected ? 'connected' : 'disconnected'}`}>
           <span className="status-dot"></span>
           <span className="status-label">
-            {audioDeviceConnected ? 'VB-Cable подключен' : 'VB-Cable не найден'}
+            {audioDeviceConnected ? 'Аудио подключено' : 'Аудио не найдено'}
           </span>
         </div>
 

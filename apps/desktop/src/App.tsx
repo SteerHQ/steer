@@ -9,14 +9,12 @@ import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { AudioVisualizer } from "./components/audio-visualizer";
 import { InterviewMode } from "./components/interview-mode";
-import { AudioDebug } from "./components/audio-debug";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import type { AppConfig } from "@steer/types";
 
 function App() {
   const [showSettings, setShowSettings] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
@@ -121,7 +119,7 @@ function App() {
   };
 
   /**
-   * Check if VB-Cable audio device is available
+   * Check if audio device is available
    */
   const checkAudioDevice = async () => {
     try {
@@ -133,7 +131,7 @@ function App() {
       setAudioDeviceConnected(false);
       setError({
         error:
-          "VB-Cable device not found. Please ensure VB-Cable is installed.",
+          "Audio device not found. Please check audio settings.",
         code: "DEVICE_NOT_FOUND",
         retryable: true,
       });
@@ -146,7 +144,7 @@ function App() {
   const startAudioCapture = async () => {
     try {
       // Use the configured audio device from config
-      const deviceName = config?.audioDevice || "VB-Cable";
+      const deviceName = config?.audioDevice || "WASAPI Loopback";
       console.log("Starting audio capture with device:", deviceName);
 
       await invoke<string>("start_audio_capture", { deviceName });
@@ -376,22 +374,7 @@ function App() {
     );
   }
 
-  // Show debug component if requested
-  if (showDebug) {
-    return (
-      <div className="app-container">
-        <WindowControls />
-        <button
-          onClick={() => setShowDebug(false)}
-          className="btn btn-secondary"
-          style={{ marginBottom: "20px" }}
-        >
-          ← Назад к приложению
-        </button>
-        <AudioDebug />
-      </div>
-    );
-  }
+
 
   return (
     <div className="app-container">
@@ -502,13 +485,7 @@ function App() {
         >
           🗑️ Очистить чат
         </button>
-        <button
-          onClick={() => setShowDebug(true)}
-          className="btn btn-secondary"
-          title="Открыть компонент отладки аудио"
-        >
-          🔧 Отладка
-        </button>
+
         <button
           onClick={() => setShowSettings(true)}
           className="btn btn-secondary"

@@ -17,7 +17,7 @@ export const Settings: React.FC<SettingsProps> = ({
 }) => {
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
   const [audioDevice, setAudioDevice] = useState(
-    initialConfig?.audioDevice || "VB-Cable"
+    initialConfig?.audioDevice || "WASAPI Loopback"
   );
   const [overlayPosition, setOverlayPosition] = useState<
     AppConfig["overlayPosition"]
@@ -136,7 +136,7 @@ export const Settings: React.FC<SettingsProps> = ({
             <small className="form-hint">
               {audioDevices.length > 0
                 ? `Найдено устройств: ${audioDevices.length}`
-                : "Для захвата системного аудио установите VB-Cable"}
+                : "Используется WASAPI Loopback для захвата системного аудио"}
             </small>
           </div>
 

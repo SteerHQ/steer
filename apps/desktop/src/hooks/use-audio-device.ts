@@ -21,14 +21,14 @@ export function useAudioDevice() {
       logger.info("Audio device connected");
     } catch (err) {
       setIsConnected(false);
-      const errorMsg = "VB-Cable device not found";
+      const errorMsg = "Audio device not found";
       setError(errorMsg);
       logger.error("Audio device check failed", err as Error);
     }
   }, []);
 
   // Запуск захвата
-  const startCapture = useCallback(async (deviceName: string = "VB-Cable") => {
+  const startCapture = useCallback(async (deviceName: string = "WASAPI Loopback") => {
     try {
       logger.info("Starting audio capture", { deviceName });
       await invoke<string>("start_audio_capture", { deviceName });

@@ -14,7 +14,7 @@ The `useAppStore` hook provides access to the application state and actions.
 - `currentResponse`: Current response from GPT-4o API (or null)
 - `overlayVisible`: Boolean indicating if overlay window is visible
 - `apiKeyConfigured`: Boolean indicating if OpenAI API key is configured
-- `audioDeviceConnected`: Boolean indicating if VB-Cable is connected
+- `audioDeviceConnected`: Boolean indicating if audio device is connected
 - `error`: Current error state (or null)
 
 ### Actions
