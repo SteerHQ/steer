@@ -27,6 +27,7 @@ export interface ErrorResponse {
 export interface GenerateRequest {
   transcript: string;
   mode?: 'general' | 'interview' | 'algorithm' | 'cheatsheet';
+  sessionId?: string; // ID сессии для получения контекста из БД
   context?: Array<{
     question: string;
     answer: string;
@@ -37,4 +38,20 @@ export interface DetectQuestionResponse {
   success: boolean;
   isQuestion: boolean;
   transcript: string;
+}
+
+export interface SessionResponse {
+  success: boolean;
+  sessionId: string;
+}
+
+export interface ConversationHistoryResponse {
+  success: boolean;
+  history: Array<{
+    id: number;
+    question: string;
+    answer: string | null;
+    mode: string;
+    createdAt: Date;
+  }>;
 }
