@@ -1,2 +1,4 @@
 // Custom hooks for the desktop application
-// Add hooks here as they are created
+
+export { useRealtime } from "./use-realtime";
+export type { UseRealtimeReturn } from "./use-realtime";

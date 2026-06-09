@@ -40,6 +40,10 @@ pub struct WasapiCapture {
     is_capturing: Arc<Mutex<bool>>,
     is_thread_running: Arc<Mutex<bool>>,
     capture_thread: Option<thread::JoinHandle<()>>,
+    /// Позиция в буфере до которой уже прочитали (для get_audio_chunk)
+    chunk_cursor: Arc<Mutex<usize>>,
+    /// Sample rate устройства (заполняется после старта)
+    device_sample_rate: Arc<Mutex<u32>>,
 }
 
 impl WasapiCapture {
@@ -54,6 +58,8 @@ impl WasapiCapture {
             is_capturing: Arc::new(Mutex::new(false)),
             is_thread_running: Arc::new(Mutex::new(false)),
             capture_thread: None,
+            chunk_cursor: Arc::new(Mutex::new(0)),
+            device_sample_rate: Arc::new(Mutex::new(48000)),
         };
         
         // Start the background capture thread immediately
@@ -76,11 +82,12 @@ impl WasapiCapture {
         let pre_roll_buffer = Arc::clone(&self.pre_roll_buffer);
         let is_capturing = Arc::clone(&self.is_capturing);
         let is_thread_running = Arc::clone(&self.is_thread_running);
+        let device_sample_rate = Arc::clone(&self.device_sample_rate);
         
         tracing::info!("Starting background WASAPI capture thread for pre-roll buffer");
         
         let handle = thread::spawn(move || {
-            if let Err(e) = Self::capture_loop(buffer, pre_roll_buffer, is_capturing, is_thread_running) {
+            if let Err(e) = Self::capture_loop(buffer, pre_roll_buffer, is_capturing, is_thread_running, device_sample_rate) {
                 tracing::error!("WASAPI capture loop error: {}", e);
             }
         });
@@ -104,8 +111,10 @@ impl WasapiCapture {
         {
             let pre_roll = self.pre_roll_buffer.lock().unwrap();
             let mut buffer = self.buffer.lock().unwrap();
-            buffer.clear(); // Clear any old data
+            buffer.clear();
             buffer.extend(pre_roll.iter());
+            // Сбрасываем курсор чтобы get_audio_chunk читал с начала
+            *self.chunk_cursor.lock().unwrap() = 0;
             tracing::info!("Started capture with {} bytes from pre-roll buffer", pre_roll.len());
         }
 
@@ -118,6 +127,7 @@ impl WasapiCapture {
         pre_roll_buffer: Arc<Mutex<VecDeque<u8>>>,
         is_capturing: Arc<Mutex<bool>>,
         is_thread_running: Arc<Mutex<bool>>,
+        device_sample_rate: Arc<Mutex<u32>>,
     ) -> std::result::Result<(), WasapiError> {
         unsafe {
             // Initialize COM for this thread
@@ -152,6 +162,9 @@ impl WasapiCapture {
                     channels,
                     bits_per_sample
                 );
+                
+                // Сохраняем sample rate для ресемплинга
+                *device_sample_rate.lock().unwrap() = sample_rate;
 
                 // Initialize audio client in loopback mode
                 audio_client.Initialize(
@@ -308,6 +321,28 @@ impl WasapiCapture {
     pub fn clear_buffer(&mut self) {
         let mut buffer = self.buffer.lock().unwrap();
         buffer.clear();
+    }
+
+    /// Получить sample rate захватываемого устройства
+    pub fn get_device_sample_rate(&self) -> u32 {
+        *self.device_sample_rate.lock().unwrap()
+    }
+
+    /// Получить новые PCM16 байты с момента последнего вызова.
+    /// Возвращает данные начиная с `chunk_cursor` до конца буфера,
+    /// затем сдвигает курсор. Буфер не очищается — старый pipeline
+    /// (get_audio_data) продолжает работать как раньше.
+    pub fn get_audio_chunk(&self) -> Vec<u8> {
+        let buffer = self.buffer.lock().unwrap();
+        let mut cursor = self.chunk_cursor.lock().unwrap();
+
+        if *cursor >= buffer.len() {
+            return Vec::new();
+        }
+
+        let chunk = buffer[*cursor..].to_vec();
+        *cursor = buffer.len();
+        chunk
     }
 
 }

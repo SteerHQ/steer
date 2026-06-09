@@ -547,3 +547,100 @@ pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<Strin
     
     Ok(path_str)
 }
+
+/// Получить новые PCM16 байты с момента предыдущего вызова, ресемплированные до 16000 Hz.
+///
+/// Используется RealtimeService на десктопе для стриминга аудио в OpenAI Realtime API.
+/// Не очищает основной буфер — старый pipeline (get_audio_data) продолжает работать.
+///
+/// # Returns
+/// * `Result<Vec<u8>, String>` - PCM16 mono 16000 Hz байты или пустой вектор если новых данных нет
+#[tauri::command]
+pub async fn get_audio_chunk(state: State<'_, AudioState>) -> Result<Vec<u8>, String> {
+    let capture_guard = state.capture.lock().unwrap();
+
+    let capture = match capture_guard.as_ref() {
+        Some(c) => c,
+        None => return Ok(Vec::new()),
+    };
+
+    let raw_chunk = capture.get_audio_chunk();
+    if raw_chunk.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let src_rate = capture.get_device_sample_rate();
+    let dst_rate: u32 = 16000;
+
+    // Если устройство уже отдаёт 16kHz — возвращаем как есть
+    if src_rate == dst_rate {
+        return Ok(raw_chunk);
+    }
+
+    // Конвертируем Vec<u8> (PCM16 LE) → Vec<f32>
+    let src_f32: Vec<f32> = raw_chunk
+        .chunks_exact(2)
+        .map(|b| i16::from_le_bytes([b[0], b[1]]) as f32 / 32768.0)
+        .collect();
+
+    // Ресемплируем через rubato (SincFixedIn)
+    let resampled = resample_pcm_f32(&src_f32, src_rate, dst_rate)
+        .map_err(|e| format!("Resample error: {}", e))?;
+
+    // Конвертируем обратно в PCM16 LE
+    let out: Vec<u8> = resampled
+        .iter()
+        .flat_map(|&s| {
+            let clamped = (s * 32767.0).clamp(-32768.0, 32767.0) as i16;
+            clamped.to_le_bytes()
+        })
+        .collect();
+
+    Ok(out)
+}
+
+/// Ресемплинг PCM f32 mono с помощью rubato SincFixedIn.
+fn resample_pcm_f32(
+    input: &[f32],
+    src_rate: u32,
+    dst_rate: u32,
+) -> Result<Vec<f32>, Box<dyn std::error::Error + Send + Sync>> {
+    use rubato::{
+        Resampler, SincFixedIn, SincInterpolationParameters, SincInterpolationType,
+        WindowFunction,
+    };
+
+    let ratio = dst_rate as f64 / src_rate as f64;
+
+    let params = SincInterpolationParameters {
+        sinc_len: 64,
+        f_cutoff: 0.95,
+        interpolation: SincInterpolationType::Linear,
+        oversampling_factor: 64,
+        window: WindowFunction::BlackmanHarris2,
+    };
+
+    // Chunk size: ~10ms при src_rate
+    let chunk_size = (src_rate as usize * 10) / 1000;
+
+    let mut resampler = SincFixedIn::<f32>::new(ratio, 2.0, params, chunk_size, 1)?;
+
+    let mut output = Vec::new();
+    let mut pos = 0;
+
+    while pos < input.len() {
+        let end = (pos + chunk_size).min(input.len());
+        let mut chunk = input[pos..end].to_vec();
+
+        // Дополняем до chunk_size нулями если это последний блок
+        if chunk.len() < chunk_size {
+            chunk.resize(chunk_size, 0.0);
+        }
+
+        let out_chunk = resampler.process(&[chunk], None)?;
+        output.extend_from_slice(&out_chunk[0]);
+        pos += chunk_size;
+    }
+
+    Ok(output)
+}

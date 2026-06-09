@@ -32,6 +32,7 @@ fn main() {
             commands::get_buffer_size,
             commands::start_audio_level_emitter,
             commands::stop_audio_level_emitter,
+            commands::get_audio_chunk,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

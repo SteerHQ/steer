@@ -10,6 +10,7 @@ import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
+import { useRealtime } from "./hooks";
 import type { AppConfig } from "@steer/types";
 
 function App() {
@@ -19,12 +20,20 @@ function App() {
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
-  
+
   // Speech detection state
   const lastVoiceTimeRef = useRef<number>(0);
   const silenceStartTimeRef = useRef<number>(0);
   const isSpeechActiveRef = useRef<boolean>(false);
-  const [speechState, setSpeechState] = useState<'idle' | 'speaking' | 'paused'>('idle');
+  const [speechState, setSpeechState] = useState<
+    "idle" | "speaking" | "paused"
+  >("idle");
+
+  // Realtime mode: использует OpenAI Realtime API вместо batch pipeline
+  const [realtimeEnabled, setRealtimeEnabled] = useState(
+    () => localStorage.getItem("realtime_enabled") === "true"
+  );
+  const realtime = useRealtime();
 
   // Access state from the store
   const {
@@ -68,6 +77,16 @@ function App() {
     }
   }, [apiKeyConfigured, audioDeviceConnected, showSettings]);
 
+  // Управление Realtime соединением в зависимости от режима и состояния захвата
+  useEffect(() => {
+    if (realtimeEnabled && isCapturing) {
+      realtime.connect(mode);
+    } else {
+      realtime.disconnect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [realtimeEnabled, isCapturing, mode]);
+
   // Start audio processing pipeline when capturing
   useEffect(() => {
     if (isCapturing && !processingIntervalRef.current) {
@@ -103,7 +122,7 @@ function App() {
         const parsedConfig = JSON.parse(storedConfig) as AppConfig;
         setConfig(parsedConfig);
       }
-      
+
       // API key is always configured (server-side)
       setApiKeyConfigured(true);
 
@@ -131,8 +150,7 @@ function App() {
       console.error("Audio device check failed:", error);
       setAudioDeviceConnected(false);
       setError({
-        error:
-          "Audio device not found. Please check audio settings.",
+        error: "Audio device not found. Please check audio settings.",
         code: "DEVICE_NOT_FOUND",
         retryable: true,
       });
@@ -224,17 +242,23 @@ function App() {
    */
   const processAudioPipeline = async () => {
     // Проверяем, включен ли анализ разговоров
-    const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
-    
-    // Skip if analysis is disabled
-    if (!analysisEnabled || !audioPipelineRef.current || !interviewServiceRef.current) {
+    const analysisEnabled =
+      localStorage.getItem("analysis_enabled") !== "false";
+
+    // Skip if analysis is disabled OR realtime mode is active (handles its own pipeline)
+    if (
+      !analysisEnabled ||
+      realtimeEnabled ||
+      !audioPipelineRef.current ||
+      !interviewServiceRef.current
+    ) {
       return;
     }
 
     try {
       // Get audio buffer size to check if there's accumulated audio
       const bufferSize = await invoke<number>("get_buffer_size");
-      
+
       if (bufferSize === 0) {
         // No audio accumulated yet
         setCurrentAudioLevel(0);
@@ -244,120 +268,129 @@ function App() {
       // Get current audio level without consuming the buffer
       const audioLevel = await invoke<number>("get_audio_level");
       setCurrentAudioLevel(audioLevel);
-      
+
       // Get threshold from localStorage (configurable by user)
       const savedThreshold = localStorage.getItem("voice_threshold");
-      const VOICE_THRESHOLD = savedThreshold ? parseFloat(savedThreshold) : 0.02;
-      
+      const VOICE_THRESHOLD = savedThreshold
+        ? parseFloat(savedThreshold)
+        : 0.02;
+
       const now = Date.now();
-      
+
       // Voice detected
       if (audioLevel >= VOICE_THRESHOLD) {
         lastVoiceTimeRef.current = now;
-        
+
         if (!isSpeechActiveRef.current) {
-          console.log('🎤 Speech started');
+          console.log("🎤 Speech started");
           isSpeechActiveRef.current = true;
           silenceStartTimeRef.current = 0;
-          setSpeechState('speaking');
+          setSpeechState("speaking");
         }
         return; // Continue accumulating
       }
-      
+
       // Silence detected
       if (isSpeechActiveRef.current) {
         // Start silence timer if not started
         if (silenceStartTimeRef.current === 0) {
           silenceStartTimeRef.current = now;
-          console.log('🔇 Silence started, waiting...');
-          setSpeechState('paused');
+          console.log("🔇 Silence started, waiting...");
+          setSpeechState("paused");
         }
-        
+
         // Wait for 1.5 seconds of silence before processing (optimized)
         const SILENCE_DURATION = 1500; // 1.5 seconds (was 2 seconds)
         const silenceDuration = now - silenceStartTimeRef.current;
-        
+
         if (silenceDuration < SILENCE_DURATION) {
-          console.log(`⏳ Silence: ${silenceDuration}ms / ${SILENCE_DURATION}ms`);
+          console.log(
+            `⏳ Silence: ${silenceDuration}ms / ${SILENCE_DURATION}ms`
+          );
           return; // Wait for more silence
         }
-        
+
         // 2 seconds of silence passed, process the accumulated audio
-        console.log('✅ Speech ended, waiting 500ms for post-roll...');
+        console.log("✅ Speech ended, waiting 500ms for post-roll...");
         isSpeechActiveRef.current = false;
         silenceStartTimeRef.current = 0;
-        setSpeechState('idle');
-        
+        setSpeechState("idle");
+
         // Skip if already processing
         if (isProcessing) {
-          console.log('⚠️ Already processing, skipping');
+          console.log("⚠️ Already processing, skipping");
           return;
         }
-        
+
         setProcessing(true);
-        
+
         // Wait 500ms to capture the tail of speech (post-roll)
-        await new Promise(resolve => setTimeout(resolve, 500));
-        console.log('📥 Post-roll complete, getting audio data');
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        console.log("📥 Post-roll complete, getting audio data");
       } else {
         // No active speech, nothing to do
-        setSpeechState('idle');
+        setSpeechState("idle");
         return;
       }
 
       // Get accumulated audio data
       const audioBuffer = await invoke<number[]>("get_audio_data");
-      
+
       if (!audioBuffer || audioBuffer.length === 0) {
-        console.log('⚠️ No audio data after silence');
+        console.log("⚠️ No audio data after silence");
         return;
       }
-      
-      console.log(`📊 Processing ${audioBuffer.length} bytes of accumulated audio`);
+
+      console.log(
+        `📊 Processing ${audioBuffer.length} bytes of accumulated audio`
+      );
 
       // Convert PCM to WAV format in memory (fast, no disk I/O)
-      console.time('⚡ PCM to WAV conversion');
+      console.time("⚡ PCM to WAV conversion");
       const wavData = await invoke<number[]>("convert_pcm_to_wav", {
         buffer: audioBuffer,
         sampleRate: 48000,
       });
-      console.timeEnd('⚡ PCM to WAV conversion');
-      
-      console.log('✅ WAV data ready:', wavData.length, 'bytes');
+      console.timeEnd("⚡ PCM to WAV conversion");
+
+      console.log("✅ WAV data ready:", wavData.length, "bytes");
 
       const audioData = new Uint8Array(wavData);
 
       // Transcribe audio
-      const transcript = await interviewServiceRef.current.transcribeAudio(
-        audioData
-      );
+      const transcript =
+        await interviewServiceRef.current.transcribeAudio(audioData);
 
-      console.log('Transcript:', transcript);
+      console.log("Transcript:", transcript);
 
       // Detect if this is a question that needs an answer
-      const isQuestion = await interviewServiceRef.current.detectQuestion(transcript);
-      
-      console.log('Is question:', isQuestion);
+      const isQuestion =
+        await interviewServiceRef.current.detectQuestion(transcript);
+
+      console.log("Is question:", isQuestion);
 
       if (!isQuestion) {
-        console.log('Not a question, skipping response generation');
-        addMessage('system', `Обнаружена речь (не вопрос): "${transcript}"`);
+        console.log("Not a question, skipping response generation");
+        addMessage("system", `Обнаружена речь (не вопрос): "${transcript}"`);
         return;
       }
 
       // Add question to chat immediately
-      addMessage('user', transcript);
+      addMessage("user", transcript);
 
       // Get context for interview mode
-      const context = mode === 'interview' ? getInterviewContext() : undefined;
+      const context = mode === "interview" ? getInterviewContext() : undefined;
 
       // Check if streaming is enabled (default: true)
-      const streamingEnabled = localStorage.getItem("streaming_enabled") !== "false";
-      
+      const streamingEnabled =
+        localStorage.getItem("streaming_enabled") !== "false";
+
       // Generate response with optional streaming
-      console.log(`⚡ Starting response generation (streaming: ${streamingEnabled})...`);
-      console.time('⚡ Total response time');
-      
+      console.log(
+        `⚡ Starting response generation (streaming: ${streamingEnabled})...`
+      );
+      console.time("⚡ Total response time");
+
       const response = await interviewServiceRef.current.generateResponseStream(
         {
           transcript,
@@ -368,19 +401,22 @@ function App() {
           // Update response in real-time as chunks arrive
           setResponse(partialResponse);
           // Update last message in chat (bot response)
-          addMessage('assistant', partialResponse);
+          addMessage("assistant", partialResponse);
         },
         streamingEnabled // Pass streaming flag
       );
-      
-      console.timeEnd('⚡ Total response time');
-      console.log('✅ Response generation completed, final length:', response.length);
+
+      console.timeEnd("⚡ Total response time");
+      console.log(
+        "✅ Response generation completed, final length:",
+        response.length
+      );
 
       // Set final response in store
       setResponse(response);
 
       // Add to interview context if in interview mode
-      if (mode === 'interview') {
+      if (mode === "interview") {
         addToInterviewContext(transcript, response);
       }
 
@@ -390,9 +426,11 @@ function App() {
       console.error("Audio pipeline error:", error);
 
       // Ignore errors about empty/small audio data (expected when no audio is captured)
-      if (error instanceof Error && 
-          (error.message.includes("No audio data") || 
-           error.message.includes("too small"))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("No audio data") ||
+          error.message.includes("too small"))
+      ) {
         return; // Skip silently
       }
 
@@ -494,8 +532,6 @@ function App() {
     );
   }
 
-
-
   return (
     <div className="app-container">
       <WindowControls />
@@ -526,7 +562,7 @@ function App() {
       </div>
 
       {/* Voice Sensitivity - показывается только в режиме интервью */}
-      {mode === 'interview' && (
+      {mode === "interview" && (
         <div style={{ marginTop: "16px" }}>
           <VoiceSensitivity currentLevel={currentAudioLevel} />
         </div>
@@ -534,16 +570,23 @@ function App() {
 
       <div style={{ marginTop: "12px" }}>
         {/* Speech state indicator */}
-        {mode === 'interview' && isCapturing && (
-          <div style={{ 
-            marginTop: "8px", 
-            textAlign: "center", 
-            fontSize: "12px",
-            color: speechState === 'speaking' ? '#4CAF50' : speechState === 'paused' ? '#FF9800' : '#666'
-          }}>
-            {speechState === 'speaking' && '🎤 Говорите...'}
-            {speechState === 'paused' && '⏸️ Пауза (ожидание завершения)'}
-            {speechState === 'idle' && '👂 Слушаю...'}
+        {mode === "interview" && isCapturing && (
+          <div
+            style={{
+              marginTop: "8px",
+              textAlign: "center",
+              fontSize: "12px",
+              color:
+                speechState === "speaking"
+                  ? "#4CAF50"
+                  : speechState === "paused"
+                    ? "#FF9800"
+                    : "#666",
+            }}
+          >
+            {speechState === "speaking" && "🎤 Говорите..."}
+            {speechState === "paused" && "⏸️ Пауза (ожидание завершения)"}
+            {speechState === "idle" && "👂 Слушаю..."}
           </div>
         )}
       </div>
@@ -555,7 +598,8 @@ function App() {
       <div className="app-actions">
         <button
           onClick={() => {
-            const current = localStorage.getItem("analysis_enabled") !== "false";
+            const current =
+              localStorage.getItem("analysis_enabled") !== "false";
             localStorage.setItem("analysis_enabled", (!current).toString());
             window.location.reload();
           }}
@@ -574,6 +618,24 @@ function App() {
             ? "🤖 Анализ ВКЛ"
             : "⏸️ Анализ ВЫКЛ"}
         </button>
+        {/* Кнопка переключения Realtime / Batch */}
+        <button
+          onClick={() => {
+            const next = !realtimeEnabled;
+            setRealtimeEnabled(next);
+            localStorage.setItem("realtime_enabled", next.toString());
+          }}
+          className={`btn ${realtimeEnabled ? "btn-success" : "btn-secondary"}`}
+          title={
+            realtimeEnabled
+              ? `Realtime API активен (${realtime.status}). Нажмите, чтобы вернуться в Batch-режим`
+              : "Включить Realtime API — низкая задержка, встроенный VAD"
+          }
+        >
+          {realtimeEnabled
+            ? `⚡ Realtime (${realtime.status})`
+            : "💤 Batch mode"}
+        </button>
         <button
           onClick={async () => {
             try {
@@ -583,12 +645,12 @@ function App() {
                   buffer: Array.from(buffer),
                   sampleRate: 48000,
                 });
-                addMessage('system', `Аудио сохранено в:\n${path}`);
+                addMessage("system", `Аудио сохранено в:\n${path}`);
               } else {
-                addMessage('system', 'Нет аудио данных для сохранения');
+                addMessage("system", "Нет аудио данных для сохранения");
               }
             } catch (error) {
-              addMessage('system', `Ошибка сохранения: ${error}`);
+              addMessage("system", `Ошибка сохранения: ${error}`);
             }
           }}
           className="btn btn-secondary"
@@ -603,7 +665,8 @@ function App() {
         </button>
         <button
           onClick={() => {
-            const current = localStorage.getItem("streaming_enabled") !== "false";
+            const current =
+              localStorage.getItem("streaming_enabled") !== "false";
             localStorage.setItem("streaming_enabled", (!current).toString());
             window.location.reload();
           }}

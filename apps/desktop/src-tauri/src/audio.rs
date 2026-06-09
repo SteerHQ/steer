@@ -69,4 +69,14 @@ impl AudioCapture {
     pub fn clear_buffer(&mut self) {
         self.wasapi.clear_buffer()
     }
+
+    /// Получить sample rate устройства
+    pub fn get_device_sample_rate(&self) -> u32 {
+        self.wasapi.get_device_sample_rate()
+    }
+
+    /// Получить новые PCM16 байты с момента последнего вызова (для Realtime стриминга)
+    pub fn get_audio_chunk(&self) -> Vec<u8> {
+        self.wasapi.get_audio_chunk()
+    }
 }
