@@ -126,15 +126,18 @@
             "useTemplate": "off",
             "useNodejsImportProtocol": "off",
             "useNumberNamespace": "off",
-            "useSelfClosingElements": "off"
+            "useSelfClosingElements": "off",
+            "noUnusedTemplateLiteral": "off"
           },
           "a11y": {
-            "useButtonType": "off"
+            "useButtonType": "off",
+            "noSvgWithoutTitle": "off"
           },
           "correctness": {
             "noUnusedVariables": "off",
             "noUnusedImports": "off",
-            "useExhaustiveDependencies": "off"
+            "useExhaustiveDependencies": "off",
+            "noUnusedFunctionParameters": "off"
           },
           "complexity": {
             "noUselessSwitchCase": "off",
