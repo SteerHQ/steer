@@ -1,3 +1,3 @@
-import { createBunWebSocket } from "hono/bun";
+import { upgradeWebSocket, websocket } from "hono/bun";
 
-export const { upgradeWebSocket, websocket } = createBunWebSocket();
+export { upgradeWebSocket, websocket };

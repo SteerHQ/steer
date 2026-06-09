@@ -13,12 +13,12 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "clean": "turbo run clean",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\""
+    "format": "biome format --write",
+    "format:check": "biome format"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
     "@types/node": "^25.9.2",
-    "prettier": "^3.8.4",
     "turbo": "^2.9.16",
     "typescript": "^5.9.3",
     "vitest": "^4.1.8"

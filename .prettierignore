@@ -1,9 +1,0 @@
-node_modules
-dist
-build
-.turbo
-coverage
-*.lock
-bun.lock
-.git
-.github
