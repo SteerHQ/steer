@@ -1,11 +1,14 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGroq } from "@ai-sdk/groq";
 import { generateText, streamText } from "ai";
 import OpenAI from "openai";
 import type { TranscriptionResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
+// Groq model used for generation and question detection
+const GROQ_GENERATION_MODEL = "openai/gpt-oss-20b";
+
 export class OpenAIService {
-  private readonly openai: ReturnType<typeof createOpenAI>;
+  private readonly groq: ReturnType<typeof createGroq>;
   private readonly openaiClient: OpenAI;
   private readonly maxRetries = 2;
 
@@ -13,9 +16,12 @@ export class OpenAIService {
     if (!apiKey || apiKey.trim() === "") {
       throw new Error("OpenAI API key is required");
     }
-    this.openai = createOpenAI({
-      apiKey,
+    // Groq API key from env (used for generation/detection)
+    const groqApiKey = process.env.GROQ_API_KEY ?? "";
+    this.groq = createGroq({
+      apiKey: groqApiKey,
     });
+    // OpenAI client is only used for transcription (gpt-4o-transcribe)
     this.openaiClient = new OpenAI({
       apiKey,
     });
@@ -65,12 +71,13 @@ export class OpenAIService {
 
   /**
    * Detect if transcript contains a question that needs an answer
+   * Uses Groq for fast, cheap classification
    */
   async detectQuestion(transcript: string): Promise<boolean> {
     return this.withRetry(async () => {
       try {
         const { text } = await generateText({
-          model: this.openai("gpt-4o-mini"),
+          model: this.groq(GROQ_GENERATION_MODEL),
           system: `Ты - детектор вопросов на техническом собеседовании.
 Твоя задача: определить, является ли текст ВОПРОСОМ, на который нужно дать ответ.
 
@@ -102,7 +109,7 @@ export class OpenAIService {
   }
 
   /**
-   * Generate response using OpenAI GPT-4o API with Vercel AI SDK
+   * Generate response using Groq via AI SDK
    * Requirements: 3.1, 3.2, 3.5
    */
   async generateResponse(
@@ -116,7 +123,7 @@ export class OpenAIService {
         const enhancedPrompt = this.buildPrompt(transcript, mode, context);
 
         const { text } = await generateText({
-          model: this.openai("gpt-4o"),
+          model: this.groq(GROQ_GENERATION_MODEL),
           system: systemPrompt,
           prompt: enhancedPrompt,
           maxRetries: 0, // We handle retries ourselves
@@ -124,10 +131,9 @@ export class OpenAIService {
 
         return text;
       } catch (error: any) {
-        // Handle AI SDK errors
         if (error.statusCode) {
           throw new OpenAIError(
-            error.message || "OpenAI API error",
+            error.message || "Groq API error",
             error.statusCode,
             this.getErrorCode(error.statusCode)
           );
@@ -142,7 +148,7 @@ export class OpenAIService {
   }
 
   /**
-   * Generate response with streaming (for faster perceived response time)
+   * Generate response with streaming via Groq
    * Returns an async generator that yields text chunks
    */
   async *generateResponseStream(
@@ -153,8 +159,8 @@ export class OpenAIService {
     const systemPrompt = this.getSystemPrompt(mode);
     const enhancedPrompt = this.buildPrompt(transcript, mode, context);
 
-    const { textStream } = await streamText({
-      model: this.openai("gpt-4o"),
+    const { textStream } = streamText({
+      model: this.groq(GROQ_GENERATION_MODEL),
       system: systemPrompt,
       prompt: enhancedPrompt,
       maxRetries: 0,
