@@ -21,11 +21,16 @@ export default defineConfig({
     // Enable tree-shaking and code splitting optimizations
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split vendor code into separate chunk
-          vendor: ["react", "react-dom"],
-          // Split zustand state management
-          store: ["zustand"],
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("react") || id.includes("react-dom")) {
+              return "vendor-react";
+            }
+            if (id.includes("zustand")) {
+              return "vendor-store";
+            }
+            return "vendor";
+          }
         },
       },
     },

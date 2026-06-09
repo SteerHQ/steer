@@ -1,14 +1,14 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "rootDir": "../../",
     "outDir": "./dist",
-    "rootDir": "./src",
     "types": ["bun", "node"],
     "paths": {
       "@steer/types": ["../../packages/types/src/index.ts"],
       "@steer/types/*": ["../../packages/types/src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../packages/types/src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

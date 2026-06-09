@@ -1,7 +1,7 @@
-import { db } from '../db';
-import { conversationHistory, interviewSessions } from '../db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { db } from "../db";
+import { conversationHistory, interviewSessions } from "../db/schema";
+import { eq, desc } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 export interface ConversationEntry {
   question: string;
@@ -14,7 +14,7 @@ export class ConversationService {
    */
   async createSession(): Promise<string> {
     const sessionId = randomUUID();
-    
+
     await db.insert(interviewSessions).values({
       sessionId,
     });
@@ -28,13 +28,16 @@ export class ConversationService {
   async saveQuestion(
     sessionId: string,
     question: string,
-    mode: 'general' | 'interview' | 'algorithm' | 'cheatsheet' = 'interview'
+    mode: "general" | "interview" | "algorithm" | "cheatsheet" = "interview"
   ): Promise<number> {
-    const result = await db.insert(conversationHistory).values({
-      sessionId,
-      question,
-      mode,
-    }).returning({ id: conversationHistory.id });
+    const result = await db
+      .insert(conversationHistory)
+      .values({
+        sessionId,
+        question,
+        mode,
+      })
+      .returning({ id: conversationHistory.id });
 
     return result[0].id;
   }
@@ -43,7 +46,8 @@ export class ConversationService {
    * Обновить ответ на вопрос
    */
   async updateAnswer(id: number, answer: string): Promise<void> {
-    await db.update(conversationHistory)
+    await db
+      .update(conversationHistory)
       .set({ answer })
       .where(eq(conversationHistory.id, id));
   }
@@ -51,7 +55,10 @@ export class ConversationService {
   /**
    * Получить контекст беседы (последние N вопросов и ответов)
    */
-  async getContext(sessionId: string, limit: number = 5): Promise<ConversationEntry[]> {
+  async getContext(
+    sessionId: string,
+    limit: number = 5
+  ): Promise<ConversationEntry[]> {
     const history = await db
       .select({
         question: conversationHistory.question,
@@ -63,7 +70,9 @@ export class ConversationService {
       .limit(limit);
 
     // Возвращаем в хронологическом порядке (старые -> новые)
-    return history.reverse().filter(entry => entry.answer !== null) as ConversationEntry[];
+    return history
+      .reverse()
+      .filter((entry): entry is ConversationEntry => entry.answer !== null);
   }
 
   /**
@@ -81,7 +90,8 @@ export class ConversationService {
    * Очистить историю сессии
    */
   async clearSession(sessionId: string): Promise<void> {
-    await db.delete(conversationHistory)
+    await db
+      .delete(conversationHistory)
       .where(eq(conversationHistory.sessionId, sessionId));
   }
 }
