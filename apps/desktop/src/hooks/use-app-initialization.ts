@@ -21,8 +21,17 @@ export function useAppInitialization({
 
   const checkAudioDevice = async () => {
     try {
-      await invoke<boolean>("get_capture_status");
-      setAudioDeviceConnected(true);
+      const isAvailable = await invoke<boolean>("get_capture_status");
+      if (isAvailable) {
+        setAudioDeviceConnected(true);
+      } else {
+        setAudioDeviceConnected(false);
+        setError({
+          error: "Audio device not found. Please check audio settings.",
+          code: "DEVICE_NOT_FOUND",
+          retryable: true,
+        });
+      }
     } catch (error) {
       console.error("Audio device check failed:", error);
       setAudioDeviceConnected(false);
@@ -99,9 +108,31 @@ export function useAppInitialization({
         try {
           await invoke<string>("stop_audio_capture");
           await invoke<string>("start_audio_capture", { deviceName: newDeviceName });
+
+          // Refresh sample rate for the new device
+          try {
+            const sr = await invoke<number>("get_device_sample_rate");
+            deviceSampleRateRef.current = sr;
+            console.log("New device sample rate:", sr, "Hz");
+          } catch {
+            deviceSampleRateRef.current = 48000;
+          }
+
           console.log("Capture restarted with new device:", newDeviceName);
         } catch (error) {
           console.error("Failed to restart capture with new device:", error);
+          // Update UI to reflect that capture is no longer running
+          const { stopCapture } = useAppStore.getState();
+          stopCapture();
+          setAudioDeviceConnected(false);
+          setError({
+            error:
+              typeof error === "string"
+                ? error
+                : "Failed to restart audio capture with new device",
+            code: "CAPTURE_START_ERROR",
+            retryable: true,
+          });
         }
       }
 

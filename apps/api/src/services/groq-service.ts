@@ -10,7 +10,9 @@ export function parseGroqApiKeys(
   keysEnv?: string,
   fallbackKeyEnv?: string,
 ): string[] {
-  const raw = keysEnv ?? fallbackKeyEnv ?? "";
+  // Prefer keysEnv only when it's non-empty; otherwise fall back to fallbackKeyEnv
+  const raw =
+    keysEnv?.trim().length ? keysEnv : (fallbackKeyEnv ?? "");
   const keys = raw
     .split(",")
     .map((k) => k.trim())
@@ -152,20 +154,20 @@ export class GroqService {
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
   ): AsyncGenerator<string, void, unknown> {
-    // Пробуем каждый доступный ключ до получения стрима
-    const client = await this.pickClientWithRetry(async (c) => {
-      // Просто проверяем, что можем начать запрос — исключение выбросится сразу
-      return c;
-    });
+    // Wrap stream initialization in key-rotation retry so that 429/5xx errors
+    // at stream creation are retried across available keys.
+    const messages = [
+      { role: "system" as const, content: this.getSystemPrompt(mode) },
+      { role: "user" as const, content: this.buildPrompt(transcript, mode, context) },
+    ];
 
-    const stream = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: this.getSystemPrompt(mode) },
-        { role: "user", content: this.buildPrompt(transcript, mode, context) },
-      ],
-      stream: true,
-    });
+    const stream = await this.withKeyRotation(async (client) => {
+      return client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        stream: true,
+      });
+    }, "GENERATION_ERROR");
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
@@ -236,22 +238,6 @@ export class GroqService {
 
     // Все ключи не справились
     throw this.wrapError(lastError, fallbackCode);
-  }
-
-  /**
-   * Вспомогательный метод для generateResponseStream:
-   * возвращает первый доступный клиент без выполнения реального запроса.
-   */
-  private async pickClientWithRetry(_: (c: Groq) => Promise<Groq>): Promise<Groq> {
-    const keyIndex = this.getNextAvailableKeyIndex();
-    if (keyIndex !== -1) {
-      this.currentKeyIndex = keyIndex;
-      return this.clients[keyIndex];
-    }
-    const waitMs = this.msUntilNextKeyAvailable();
-    await this.sleep(waitMs);
-    const fallbackIndex = this.getNextAvailableKeyIndex();
-    return this.clients[fallbackIndex !== -1 ? fallbackIndex : 0];
   }
 
   /**

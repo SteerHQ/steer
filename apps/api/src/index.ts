@@ -47,13 +47,24 @@ if (!process.env.OPENAI_API_KEY) {
   console.log(`✅ OPENAI_API_KEY loaded: ${keyPreview}`);
 }
 
-if (!process.env.GROQ_API_KEY) {
+// Accept GROQ_API_KEYS (comma-separated) or legacy GROQ_API_KEY
+const groqKeysRaw =
+  process.env.GROQ_API_KEYS?.trim() ||
+  process.env.GROQ_API_KEY?.trim() ||
+  "";
+const groqKeys = groqKeysRaw
+  .split(",")
+  .map((k) => k.trim())
+  .filter((k) => k.length > 0);
+
+if (groqKeys.length === 0) {
   console.warn(
-    "⚠️  GROQ_API_KEY not found — /api/groq/* routes will return 400",
+    "⚠️  Neither GROQ_API_KEYS nor GROQ_API_KEY found — /api/groq/* routes will return 400",
   );
 } else {
-  const keyPreview = process.env.GROQ_API_KEY.substring(0, 7) + "...";
-  console.log(`✅ GROQ_API_KEY loaded: ${keyPreview}`);
+  const keyPreview = groqKeys[0].substring(0, 7) + "...";
+  const label = groqKeys.length > 1 ? `${groqKeys.length} keys` : "1 key";
+  console.log(`✅ Groq API keys loaded: ${label} (first: ${keyPreview})`);
 }
 
 // Start server

@@ -17,7 +17,10 @@ export class OpenAIService {
       throw new Error("OpenAI API key is required");
     }
     // Groq API key from env (used for generation/detection)
-    const groqApiKey = process.env.GROQ_API_KEY ?? "";
+    // Prefer GROQ_API_KEY; if missing, fall back to GROQ_API_KEYS (taking the first key)
+    const groqApiKey =
+      process.env.GROQ_API_KEY?.trim() ||
+      (process.env.GROQ_API_KEYS?.split(",")[0]?.trim() ?? "");
     this.groq = createGroq({
       apiKey: groqApiKey,
     });

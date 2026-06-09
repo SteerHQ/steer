@@ -80,7 +80,10 @@ function App() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [isCapturing]);
+  // processAudioPipeline and initServices are stable refs from hooks but
+  // must be listed to avoid capturing a stale closure if they ever change.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCapturing, processAudioPipeline, initServices]);
 
   const handleSettingsSaveWrapper = (newConfig: AppConfig) =>
     handleSettingsSave(newConfig, isCapturing);
@@ -97,7 +100,8 @@ function App() {
       case "DEVICE_NOT_FOUND":
       case "CAPTURE_START_ERROR":
         await checkAudioDevice();
-        if (audioDeviceConnected) await startAudioCapture();
+        // Re-read fresh state from store after the async check completes
+        if (useAppStore.getState().audioDeviceConnected) await startAudioCapture();
         break;
       case "API_ERROR":
       case "OPENAI_ERROR":
@@ -203,6 +207,7 @@ function App() {
         realtimeStatus={realtime.status}
         onToggleRealtime={handleToggleRealtime}
         onOpenSettings={() => setShowSettings(true)}
+        sampleRate={deviceSampleRateRef.current}
       />
     </div>
   );
