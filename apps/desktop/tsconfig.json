@@ -10,16 +10,13 @@
       "@steer/types": ["../../packages/types/src/index.ts"],
       "@steer/types/*": ["../../packages/types/src/*"],
       "@steer/config": ["../../packages/config/src/index.ts"],
-      "@steer/config/*": ["../../packages/config/src/*"],
-      "@steer/ui": ["../../packages/ui/src/index.ts"],
-      "@steer/ui/*": ["../../packages/ui/src/*"]
+      "@steer/config/*": ["../../packages/config/src/*"]
     }
   },
   "include": [
     "src/**/*",
     "../../packages/types/src/**/*",
-    "../../packages/config/src/**/*",
-    "../../packages/ui/src/**/*"
+    "../../packages/config/src/**/*"
   ],
   "exclude": ["node_modules", "dist", "src-tauri"]
 }

@@ -1,12 +1,11 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import audioRoutes from "./routes/audio";
 import openaiRoutes from "./routes/openai";
 import { errorHandler } from "./middleware/error-handler";
 
 // .env is loaded automatically by Bun with --env-file flag in package.json
-console.log('📁 Environment variables loaded from project root');
+console.log("📁 Environment variables loaded from project root");
 
 const app = new Hono();
 
@@ -30,7 +29,6 @@ app.get("/", (c) => {
 });
 
 // API routes
-app.route("/api/audio", audioRoutes);
 app.route("/api", openaiRoutes);
 
 // Error handling middleware (must be last)
@@ -38,11 +36,11 @@ app.onError(errorHandler);
 
 // Verify API key is loaded
 if (!process.env.OPENAI_API_KEY) {
-  console.error('❌ OPENAI_API_KEY not found in environment variables!');
-  console.error('   Please create .env file in project root with:');
-  console.error('   OPENAI_API_KEY=your_key_here');
+  console.error("❌ OPENAI_API_KEY not found in environment variables!");
+  console.error("   Please create .env file in project root with:");
+  console.error("   OPENAI_API_KEY=your_key_here");
 } else {
-  const keyPreview = process.env.OPENAI_API_KEY.substring(0, 7) + '...';
+  const keyPreview = process.env.OPENAI_API_KEY.substring(0, 7) + "...";
   console.log(`✅ OPENAI_API_KEY loaded: ${keyPreview}`);
 }
 

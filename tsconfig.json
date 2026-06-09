@@ -16,9 +16,7 @@
       "@steer/types": ["./packages/types/src/index.ts"],
       "@steer/types/*": ["./packages/types/src/*"],
       "@steer/config": ["./packages/config/src/index.ts"],
-      "@steer/config/*": ["./packages/config/src/*"],
-      "@steer/ui": ["./packages/ui/src/index.ts"],
-      "@steer/ui/*": ["./packages/ui/src/*"]
+      "@steer/config/*": ["./packages/config/src/*"]
     }
   }
 }
