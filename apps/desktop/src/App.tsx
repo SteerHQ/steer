@@ -8,7 +8,6 @@ import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
-import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
 import {
   SileroVADService,
@@ -21,10 +20,11 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
-  const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
   const sileroVADRef = useRef<SileroVADService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
+  const deviceSampleRateRef = useRef<number>(48000);
 
   // Speech detection state
   const lastVoiceTimeRef = useRef<number>(0);
@@ -55,7 +55,6 @@ function App() {
     setError,
     startCapture,
     setProcessing,
-    setTranscript,
     setResponse,
     clearMessages,
     setMode,
@@ -95,8 +94,7 @@ function App() {
   // Start audio processing pipeline when capturing
   useEffect(() => {
     if (isCapturing && !processingIntervalRef.current) {
-      // Initialize audio pipeline
-      audioPipelineRef.current = new AudioPipeline();
+      // Initialize services
       interviewServiceRef.current = new InterviewService();
 
       // Инициализируем Silero VAD асинхронно (загружает ONNX модель ~200ms)
@@ -193,6 +191,16 @@ function App() {
       await invoke<string>("start_audio_capture", { deviceName });
       startCapture();
       setAudioDeviceConnected(true);
+
+      // Получаем реальный sample rate устройства для корректной работы VAD
+      try {
+        const sr = await invoke<number>("get_device_sample_rate");
+        deviceSampleRateRef.current = sr;
+        console.log("Device sample rate:", sr, "Hz");
+      } catch {
+        deviceSampleRateRef.current = 48000;
+      }
+
       console.log(
         "Audio capture started successfully with device:",
         deviceName,
@@ -273,7 +281,6 @@ function App() {
     if (
       !analysisEnabled ||
       realtimeEnabled ||
-      !audioPipelineRef.current ||
       !interviewServiceRef.current
     ) {
       return;
@@ -295,90 +302,97 @@ function App() {
         const audioLevel = await invoke<number>("get_audio_level");
         setCurrentAudioLevel(audioLevel);
 
-        // Если VAD уже обрабатывает — пропускаем тик
-        if (isProcessing) return;
-
-        // Забираем буфер (очищает его в Tauri)
-        const audioBuffer = await invoke<number[]>("get_audio_data");
-        if (!audioBuffer || audioBuffer.length === 0) return;
-
-        console.log(`🧠 Silero VAD: анализирую ${audioBuffer.length} байт...`);
-        console.time("🧠 Silero VAD");
-
-        const segments = await sileroVADRef.current.processBuffer(
-          audioBuffer,
-          48000,
-        );
-
-        console.timeEnd("🧠 Silero VAD");
-
-        if (segments.length === 0) {
-          console.log("🔇 Silero VAD: речь не обнаружена");
-          setSpeechState("idle");
-          return;
-        }
-
-        console.log(
-          `✅ Silero VAD: найдено ${segments.length} сегмент(ов) речи`,
-        );
-        setSpeechState("speaking");
+        // Если VAD уже обрабатывает — пропускаем тик (ref-based lock, never stale)
+        if (isProcessingRef.current) return;
+        isProcessingRef.current = true;
         setProcessing(true);
 
-        // Объединяем все сегменты в один WAV
-        const totalLength = segments.reduce(
-          (sum, s) => sum + s.audio.length,
-          0,
-        );
-        const merged = new Float32Array(totalLength);
-        let offset = 0;
-        for (const seg of segments) {
-          merged.set(seg.audio, offset);
-          offset += seg.audio.length;
-        }
+        try {
+          // Забираем буфер (очищает его в Tauri)
+          const audioBuffer = await invoke<number[]>("get_audio_data");
+          if (!audioBuffer || audioBuffer.length === 0) return;
 
-        // Float32 (16kHz) → WAV Blob (Silero VAD уже отдаёт 16kHz)
-        const wavBlob = float32ToWavBlob(merged, 16000);
-        const audioData = new Uint8Array(await wavBlob.arrayBuffer());
+          console.log(`🧠 Silero VAD: анализирую ${audioBuffer.length} байт...`);
+          console.time("🧠 Silero VAD");
 
-        setSpeechState("idle");
-
-        // Транскрипция
-        const transcript =
-          await interviewServiceRef.current!.transcribeAudio(audioData);
-        console.log("Transcript:", transcript);
-
-        if (!transcript.trim()) return;
-
-        // Определяем вопрос
-        const isQuestion =
-          await interviewServiceRef.current!.detectQuestion(transcript);
-        if (!isQuestion) {
-          addMessage("system", `Обнаружена речь (не вопрос): "${transcript}"`);
-          return;
-        }
-
-        addMessage("user", transcript);
-
-        const context =
-          mode === "interview" ? getInterviewContext() : undefined;
-        const streamingEnabled =
-          localStorage.getItem("streaming_enabled") !== "false";
-
-        console.time("⚡ Total response time");
-        const response =
-          await interviewServiceRef.current!.generateResponseStream(
-            { transcript, mode, context },
-            (partialResponse) => {
-              setResponse(partialResponse);
-              addMessage("assistant", partialResponse);
-            },
-            streamingEnabled,
+          const segments = await sileroVADRef.current.processBuffer(
+            audioBuffer,
+            deviceSampleRateRef.current,
           );
-        console.timeEnd("⚡ Total response time");
 
-        setResponse(response);
-        if (mode === "interview") addToInterviewContext(transcript, response);
-        setError(null);
+          console.timeEnd("🧠 Silero VAD");
+
+          if (segments.length === 0) {
+            console.log("🔇 Silero VAD: речь не обнаружена");
+            setSpeechState("idle");
+            return;
+          }
+
+          console.log(
+            `✅ Silero VAD: найдено ${segments.length} сегмент(ов) речи`,
+          );
+          setSpeechState("speaking");
+
+          // Объединяем все сегменты в один WAV
+          const totalLength = segments.reduce(
+            (sum, s) => sum + s.audio.length,
+            0,
+          );
+          const merged = new Float32Array(totalLength);
+          let offset = 0;
+          for (const seg of segments) {
+            merged.set(seg.audio, offset);
+            offset += seg.audio.length;
+          }
+
+          // Float32 (16kHz) → WAV Blob (Silero VAD уже отдаёт 16kHz)
+          const wavBlob = float32ToWavBlob(merged, 16000);
+          const audioData = new Uint8Array(await wavBlob.arrayBuffer());
+
+          setSpeechState("idle");
+
+          // Транскрипция
+          const transcript =
+            await interviewServiceRef.current!.transcribeAudio(audioData);
+          console.log("Transcript:", transcript);
+
+          if (!transcript.trim()) return;
+
+          // Определяем вопрос
+          const isQuestion =
+            await interviewServiceRef.current!.detectQuestion(transcript);
+          if (!isQuestion) {
+            addMessage("system", `Обнаружена речь (не вопрос): "${transcript}"`);
+            return;
+          }
+
+          addMessage("user", transcript);
+
+          const context =
+            mode === "interview" ? getInterviewContext() : undefined;
+          const streamingEnabled =
+            localStorage.getItem("streaming_enabled") !== "false";
+
+          console.time("⚡ Total response time");
+          const response =
+            await interviewServiceRef.current!.generateResponseStream(
+              { transcript, mode, context },
+              (partialResponse) => {
+                setResponse(partialResponse);
+                addMessage("assistant", partialResponse);
+              },
+              streamingEnabled,
+            );
+          console.timeEnd("⚡ Total response time");
+
+          setResponse(response);
+          if (mode === "interview") addToInterviewContext(transcript, response);
+          setError(null);
+        } finally {
+          // Always release the lock so future ticks can proceed
+          isProcessingRef.current = false;
+          setProcessing(false);
+        }
         return;
       }
 
@@ -431,11 +445,12 @@ function App() {
         silenceStartTimeRef.current = 0;
         setSpeechState("idle");
 
-        if (isProcessing) {
+        if (isProcessingRef.current) {
           console.log("⚠️ Already processing, skipping");
           return;
         }
 
+        isProcessingRef.current = true;
         setProcessing(true);
 
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -461,7 +476,7 @@ function App() {
       console.time("⚡ PCM to WAV conversion");
       const wavData = await invoke<number[]>("convert_pcm_to_wav", {
         buffer: audioBuffer,
-        sampleRate: 48000,
+        sampleRate: deviceSampleRateRef.current,
       });
       console.timeEnd("⚡ PCM to WAV conversion");
 
@@ -568,6 +583,7 @@ function App() {
         });
       }
     } finally {
+      isProcessingRef.current = false;
       setProcessing(false);
     }
   };

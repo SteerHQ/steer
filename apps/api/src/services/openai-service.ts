@@ -70,7 +70,7 @@ export class OpenAIService {
     return this.withRetry(async () => {
       try {
         const { text } = await generateText({
-          model: this.openai("gpt-5-nano"),
+          model: this.openai("gpt-4o-mini"),
           system: `Ты - детектор вопросов на техническом собеседовании.
 Твоя задача: определить, является ли текст ВОПРОСОМ, на который нужно дать ответ.
 
@@ -116,7 +116,7 @@ export class OpenAIService {
         const enhancedPrompt = this.buildPrompt(transcript, mode, context);
 
         const { text } = await generateText({
-          model: this.openai("gpt-5"),
+          model: this.openai("gpt-4o"),
           system: systemPrompt,
           prompt: enhancedPrompt,
           maxRetries: 0, // We handle retries ourselves
@@ -154,7 +154,7 @@ export class OpenAIService {
     const enhancedPrompt = this.buildPrompt(transcript, mode, context);
 
     const { textStream } = await streamText({
-      model: this.openai("gpt-5"),
+      model: this.openai("gpt-4o"),
       system: systemPrompt,
       prompt: enhancedPrompt,
       maxRetries: 0,
