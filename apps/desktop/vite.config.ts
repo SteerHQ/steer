@@ -1,8 +1,36 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Копируем ONNX модели и WASM файлы для Silero VAD (onnxruntime-web)
+    viteStaticCopy({
+      targets: [
+        {
+          src: "node_modules/@ricky0123/vad-web/dist/vad.worklet.bundle.min.js",
+          dest: "./",
+        },
+        {
+          src: "node_modules/@ricky0123/vad-web/dist/silero_vad_legacy.onnx",
+          dest: "./",
+        },
+        {
+          src: "node_modules/@ricky0123/vad-web/dist/silero_vad_v5.onnx",
+          dest: "./",
+        },
+        {
+          src: "node_modules/onnxruntime-web/dist/*.wasm",
+          dest: "./",
+        },
+        {
+          src: "node_modules/onnxruntime-web/dist/*.mjs",
+          dest: "./",
+        },
+      ],
+    }),
+  ],
   clearScreen: false,
   server: {
     port: 1420,
@@ -35,7 +63,7 @@ export default defineConfig({
       },
     },
     // Optimize chunk size
-    chunkSizeWarningLimit: 500,
+    chunkSizeWarningLimit: 2500,
     // Enable CSS code splitting
     cssCodeSplit: true,
     // Optimize asset inlining threshold (10kb)

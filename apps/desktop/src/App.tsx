@@ -10,6 +10,10 @@ import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AudioPipeline } from "./services/audio-pipeline";
 import { InterviewService } from "./services/interview-service";
+import {
+  SileroVADService,
+  float32ToWavBlob,
+} from "./services/silero-vad-service";
 import { useRealtime } from "./hooks";
 import type { AppConfig } from "@steer/types";
 
@@ -19,6 +23,7 @@ function App() {
   const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const interviewServiceRef = useRef<InterviewService | null>(null);
+  const sileroVADRef = useRef<SileroVADService | null>(null);
   const processingIntervalRef = useRef<number | null>(null);
 
   // Speech detection state
@@ -31,7 +36,7 @@ function App() {
 
   // Realtime mode: использует OpenAI Realtime API вместо batch pipeline
   const [realtimeEnabled, setRealtimeEnabled] = useState(
-    () => localStorage.getItem("realtime_enabled") === "true"
+    () => localStorage.getItem("realtime_enabled") === "true",
   );
   const realtime = useRealtime();
 
@@ -93,6 +98,25 @@ function App() {
       // Initialize audio pipeline
       audioPipelineRef.current = new AudioPipeline();
       interviewServiceRef.current = new InterviewService();
+
+      // Инициализируем Silero VAD асинхронно (загружает ONNX модель ~200ms)
+      SileroVADService.create({
+        positiveSpeechThreshold: 0.5,
+        negativeSpeechThreshold: 0.35,
+        minSpeechMs: 300,
+        redemptionMs: 600,
+        preSpeechPadMs: 50,
+      })
+        .then((vad) => {
+          sileroVADRef.current = vad;
+          console.log("✅ Silero VAD загружен и готов");
+        })
+        .catch((err) => {
+          console.warn(
+            "⚠️ Silero VAD не загрузился, используется RMS fallback:",
+            err,
+          );
+        });
 
       // Poll for audio data every 5 seconds
       processingIntervalRef.current = window.setInterval(() => {
@@ -171,7 +195,7 @@ function App() {
       setAudioDeviceConnected(true);
       console.log(
         "Audio capture started successfully with device:",
-        deviceName
+        deviceName,
       );
     } catch (error) {
       console.error("Failed to start audio capture:", error);
@@ -260,11 +284,105 @@ function App() {
       const bufferSize = await invoke<number>("get_buffer_size");
 
       if (bufferSize === 0) {
-        // No audio accumulated yet
         setCurrentAudioLevel(0);
         return;
       }
 
+      // ─── Silero VAD (нейросетевой) или RMS fallback ──────────────────────
+      if (sileroVADRef.current) {
+        // === Silero VAD path ===
+        // Забираем накопленный буфер без очистки для уровня громкости
+        const audioLevel = await invoke<number>("get_audio_level");
+        setCurrentAudioLevel(audioLevel);
+
+        // Если VAD уже обрабатывает — пропускаем тик
+        if (isProcessing) return;
+
+        // Забираем буфер (очищает его в Tauri)
+        const audioBuffer = await invoke<number[]>("get_audio_data");
+        if (!audioBuffer || audioBuffer.length === 0) return;
+
+        console.log(`🧠 Silero VAD: анализирую ${audioBuffer.length} байт...`);
+        console.time("🧠 Silero VAD");
+
+        const segments = await sileroVADRef.current.processBuffer(
+          audioBuffer,
+          48000,
+        );
+
+        console.timeEnd("🧠 Silero VAD");
+
+        if (segments.length === 0) {
+          console.log("🔇 Silero VAD: речь не обнаружена");
+          setSpeechState("idle");
+          return;
+        }
+
+        console.log(
+          `✅ Silero VAD: найдено ${segments.length} сегмент(ов) речи`,
+        );
+        setSpeechState("speaking");
+        setProcessing(true);
+
+        // Объединяем все сегменты в один WAV
+        const totalLength = segments.reduce(
+          (sum, s) => sum + s.audio.length,
+          0,
+        );
+        const merged = new Float32Array(totalLength);
+        let offset = 0;
+        for (const seg of segments) {
+          merged.set(seg.audio, offset);
+          offset += seg.audio.length;
+        }
+
+        // Float32 (16kHz) → WAV Blob (Silero VAD уже отдаёт 16kHz)
+        const wavBlob = float32ToWavBlob(merged, 16000);
+        const audioData = new Uint8Array(await wavBlob.arrayBuffer());
+
+        setSpeechState("idle");
+
+        // Транскрипция
+        const transcript =
+          await interviewServiceRef.current!.transcribeAudio(audioData);
+        console.log("Transcript:", transcript);
+
+        if (!transcript.trim()) return;
+
+        // Определяем вопрос
+        const isQuestion =
+          await interviewServiceRef.current!.detectQuestion(transcript);
+        if (!isQuestion) {
+          addMessage("system", `Обнаружена речь (не вопрос): "${transcript}"`);
+          return;
+        }
+
+        addMessage("user", transcript);
+
+        const context =
+          mode === "interview" ? getInterviewContext() : undefined;
+        const streamingEnabled =
+          localStorage.getItem("streaming_enabled") !== "false";
+
+        console.time("⚡ Total response time");
+        const response =
+          await interviewServiceRef.current!.generateResponseStream(
+            { transcript, mode, context },
+            (partialResponse) => {
+              setResponse(partialResponse);
+              addMessage("assistant", partialResponse);
+            },
+            streamingEnabled,
+          );
+        console.timeEnd("⚡ Total response time");
+
+        setResponse(response);
+        if (mode === "interview") addToInterviewContext(transcript, response);
+        setError(null);
+        return;
+      }
+
+      // ─── RMS fallback (Silero VAD ещё не загружен) ───────────────────────
       // Get current audio level without consuming the buffer
       const audioLevel = await invoke<number>("get_audio_level");
       setCurrentAudioLevel(audioLevel);
@@ -282,7 +400,7 @@ function App() {
         lastVoiceTimeRef.current = now;
 
         if (!isSpeechActiveRef.current) {
-          console.log("🎤 Speech started");
+          console.log("🎤 Speech started (RMS)");
           isSpeechActiveRef.current = true;
           silenceStartTimeRef.current = 0;
           setSpeechState("speaking");
@@ -292,31 +410,27 @@ function App() {
 
       // Silence detected
       if (isSpeechActiveRef.current) {
-        // Start silence timer if not started
         if (silenceStartTimeRef.current === 0) {
           silenceStartTimeRef.current = now;
           console.log("🔇 Silence started, waiting...");
           setSpeechState("paused");
         }
 
-        // Wait for 1.5 seconds of silence before processing (optimized)
-        const SILENCE_DURATION = 1500; // 1.5 seconds (was 2 seconds)
+        const SILENCE_DURATION = 1500;
         const silenceDuration = now - silenceStartTimeRef.current;
 
         if (silenceDuration < SILENCE_DURATION) {
           console.log(
-            `⏳ Silence: ${silenceDuration}ms / ${SILENCE_DURATION}ms`
+            `⏳ Silence: ${silenceDuration}ms / ${SILENCE_DURATION}ms`,
           );
-          return; // Wait for more silence
+          return;
         }
 
-        // 2 seconds of silence passed, process the accumulated audio
         console.log("✅ Speech ended, waiting 500ms for post-roll...");
         isSpeechActiveRef.current = false;
         silenceStartTimeRef.current = 0;
         setSpeechState("idle");
 
-        // Skip if already processing
         if (isProcessing) {
           console.log("⚠️ Already processing, skipping");
           return;
@@ -324,11 +438,9 @@ function App() {
 
         setProcessing(true);
 
-        // Wait 500ms to capture the tail of speech (post-roll)
         await new Promise((resolve) => setTimeout(resolve, 500));
         console.log("📥 Post-roll complete, getting audio data");
       } else {
-        // No active speech, nothing to do
         setSpeechState("idle");
         return;
       }
@@ -342,7 +454,7 @@ function App() {
       }
 
       console.log(
-        `📊 Processing ${audioBuffer.length} bytes of accumulated audio`
+        `📊 Processing ${audioBuffer.length} bytes of accumulated audio`,
       );
 
       // Convert PCM to WAV format in memory (fast, no disk I/O)
@@ -387,7 +499,7 @@ function App() {
 
       // Generate response with optional streaming
       console.log(
-        `⚡ Starting response generation (streaming: ${streamingEnabled})...`
+        `⚡ Starting response generation (streaming: ${streamingEnabled})...`,
       );
       console.time("⚡ Total response time");
 
@@ -403,13 +515,13 @@ function App() {
           // Update last message in chat (bot response)
           addMessage("assistant", partialResponse);
         },
-        streamingEnabled // Pass streaming flag
+        streamingEnabled, // Pass streaming flag
       );
 
       console.timeEnd("⚡ Total response time");
       console.log(
         "✅ Response generation completed, final length:",
-        response.length
+        response.length,
       );
 
       // Set final response in store
