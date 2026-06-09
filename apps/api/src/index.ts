@@ -3,6 +3,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { websocket } from "./ws";
 import openaiRoutes from "./routes/openai";
+import groqRoutes from "./routes/groq";
 import { errorHandler } from "./middleware/error-handler";
 
 // .env is loaded automatically by Bun with --env-file flag in package.json
@@ -18,7 +19,7 @@ app.use(
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-  })
+  }),
 );
 
 // Logger middleware
@@ -31,6 +32,7 @@ app.get("/", (c) => {
 
 // API routes
 app.route("/api", openaiRoutes);
+app.route("/api/groq", groqRoutes);
 
 // Error handling middleware (must be last)
 app.onError(errorHandler);
@@ -43,6 +45,15 @@ if (!process.env.OPENAI_API_KEY) {
 } else {
   const keyPreview = process.env.OPENAI_API_KEY.substring(0, 7) + "...";
   console.log(`✅ OPENAI_API_KEY loaded: ${keyPreview}`);
+}
+
+if (!process.env.GROQ_API_KEY) {
+  console.warn(
+    "⚠️  GROQ_API_KEY not found — /api/groq/* routes will return 400",
+  );
+} else {
+  const keyPreview = process.env.GROQ_API_KEY.substring(0, 7) + "...";
+  console.log(`✅ GROQ_API_KEY loaded: ${keyPreview}`);
 }
 
 // Start server
