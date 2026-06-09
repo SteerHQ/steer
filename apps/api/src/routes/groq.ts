@@ -1,6 +1,11 @@
 import { Hono } from "hono";
-import { GroqService } from "../services/groq-service";
+import { GroqService, parseGroqApiKeys } from "../services/groq-service";
 import { ValidationError } from "../middleware/error-handler";
+
+/** Читает ключи из GROQ_API_KEYS (запятая) или GROQ_API_KEY (один ключ) */
+function getGroqKeys(): string[] {
+  return parseGroqApiKeys(process.env.GROQ_API_KEYS, process.env.GROQ_API_KEY);
+}
 
 const groq = new Hono();
 
@@ -9,10 +14,10 @@ const groq = new Hono();
 // Принимает raw binary WAV в теле запроса
 // Query param: ?context=<предыдущий текст> — для сшивания смысла между чанками
 groq.post("/transcribe", async (c) => {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKeys = getGroqKeys();
 
-  if (!apiKey) {
-    throw new ValidationError("GROQ_API_KEY not configured on server");
+  if (apiKeys.length === 0) {
+    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
   }
 
   const arrayBuffer = await c.req.arrayBuffer();
@@ -42,7 +47,7 @@ groq.post("/transcribe", async (c) => {
   const previousContext = c.req.query("context") ?? undefined;
   const audioBlob = new Blob([audioArray], { type: "audio/wav" });
 
-  const groqService = new GroqService(apiKey);
+  const groqService = new GroqService(apiKeys);
   const result = await groqService.transcribeAudio(audioBlob, previousContext);
 
   console.log("[Groq transcription]:", result.text);
@@ -54,10 +59,10 @@ groq.post("/transcribe", async (c) => {
 // Сгенерировать подсказку через Groq Llama с опциональным стримингом
 // Query param: ?stream=false для без-стриминга (по умолчанию stream=true)
 groq.post("/generate", async (c) => {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKeys = getGroqKeys();
 
-  if (!apiKey) {
-    throw new ValidationError("GROQ_API_KEY not configured on server");
+  if (apiKeys.length === 0) {
+    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
   }
 
   const body = await c.req.json();
@@ -80,7 +85,7 @@ groq.post("/generate", async (c) => {
   const mode: Mode = validModes.includes(body.mode) ? body.mode : "general";
 
   const useStreaming = c.req.query("stream") !== "false";
-  const groqService = new GroqService(apiKey);
+  const groqService = new GroqService(apiKeys);
 
   // Без стриминга
   if (!useStreaming) {
@@ -124,10 +129,10 @@ groq.post("/generate", async (c) => {
 // POST /api/groq/detect-question
 // Определить, является ли текст вопросом (быстрая Llama 8B)
 groq.post("/detect-question", async (c) => {
-  const apiKey = process.env.GROQ_API_KEY;
+  const apiKeys = getGroqKeys();
 
-  if (!apiKey) {
-    throw new ValidationError("GROQ_API_KEY not configured on server");
+  if (apiKeys.length === 0) {
+    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
   }
 
   const body = await c.req.json();
@@ -136,7 +141,7 @@ groq.post("/detect-question", async (c) => {
     throw new ValidationError("Missing required field: transcript");
   }
 
-  const groqService = new GroqService(apiKey);
+  const groqService = new GroqService(apiKeys);
   const isQuestion = await groqService.detectQuestion(body.transcript);
 
   return c.json({ success: true, isQuestion });

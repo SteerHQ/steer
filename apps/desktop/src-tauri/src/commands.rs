@@ -548,6 +548,19 @@ pub async fn save_audio_debug(buffer: Vec<u8>, sample_rate: u32) -> Result<Strin
     Ok(path_str)
 }
 
+/// Получить sample rate текущего захватываемого устройства.
+/// Используется на фронтенде для передачи правильного SR в Silero VAD.
+#[tauri::command]
+pub async fn get_device_sample_rate(state: State<'_, AudioState>) -> Result<u32, String> {
+    let capture_guard = state.capture.lock().unwrap();
+    if let Some(ref capture) = *capture_guard {
+        Ok(capture.get_device_sample_rate())
+    } else {
+        // Возвращаем стандартное значение если захват ещё не запущен
+        Ok(48000)
+    }
+}
+
 /// Получить новые PCM16 байты с момента предыдущего вызова, ресемплированные до 16000 Hz.
 ///
 /// Используется RealtimeService на десктопе для стриминга аудио в OpenAI Realtime API.

@@ -2,16 +2,51 @@ import Groq from "groq-sdk";
 import type { TranscriptionResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
-export class GroqService {
-  private readonly groq: Groq;
-  private readonly maxRetries = 2;
+/**
+ * Парсит строку ключей (через запятую) в массив.
+ * Поддерживает как GROQ_API_KEYS (несколько), так и GROQ_API_KEY (один).
+ */
+export function parseGroqApiKeys(
+  keysEnv?: string,
+  fallbackKeyEnv?: string,
+): string[] {
+  const raw = keysEnv ?? fallbackKeyEnv ?? "";
+  const keys = raw
+    .split(",")
+    .map((k) => k.trim())
+    .filter((k) => k.length > 0);
+  return keys;
+}
 
-  constructor(apiKey: string) {
-    if (!apiKey || apiKey.trim() === "") {
-      throw new Error("Groq API key is required");
+export class GroqService {
+  private readonly clients: Groq[];
+  /** Индекс текущего активного ключа */
+  private currentKeyIndex = 0;
+  /** Время (ms), до которого ключ считается заблокированным (rate-limit) */
+  private readonly keyBlockedUntil: number[];
+
+  constructor(apiKeys: string | string[]) {
+    const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
+
+    if (keys.length === 0) {
+      throw new Error("At least one Groq API key is required");
     }
-    this.groq = new Groq({ apiKey });
+
+    keys.forEach((key, i) => {
+      if (!key || key.trim() === "") {
+        throw new Error(`Groq API key at index ${i} is empty`);
+      }
+    });
+
+    this.clients = keys.map((key) => new Groq({ apiKey: key }));
+    this.keyBlockedUntil = new Array(keys.length).fill(0);
+
+    if (keys.length > 1) {
+      console.log(`[GroqService] Initialized with ${keys.length} API keys`);
+    }
   }
+
+  // ─── Публичные методы ────────────────────────────────────────────────────────
 
   /**
    * Транскрибировать аудио через Groq Whisper large-v3
@@ -20,27 +55,23 @@ export class GroqService {
     audioBlob: Blob,
     previousContext?: string,
   ): Promise<TranscriptionResponse> {
-    return this.withRetry(async () => {
-      try {
-        const file = new File([audioBlob], "audio.wav", { type: "audio/wav" });
+    return this.withKeyRotation(async (client) => {
+      const file = new File([audioBlob], "audio.wav", { type: "audio/wav" });
 
-        const transcription = await this.groq.audio.transcriptions.create({
-          file,
-          model: "whisper-large-v3",
-          language: "ru",
-          prompt: previousContext, // сшивание смысла между чанками
-          response_format: "json",
-        });
+      const transcription = await client.audio.transcriptions.create({
+        file,
+        model: "whisper-large-v3",
+        language: "ru",
+        prompt: previousContext,
+        response_format: "json",
+      });
 
-        return {
-          text: transcription.text,
-          language: "ru",
-          duration: 0,
-        };
-      } catch (error: any) {
-        throw this.wrapError(error, "TRANSCRIPTION_ERROR");
-      }
-    });
+      return {
+        text: transcription.text,
+        language: "ru",
+        duration: 0,
+      };
+    }, "TRANSCRIPTION_ERROR");
   }
 
   /**
@@ -48,12 +79,13 @@ export class GroqService {
    */
   async detectQuestion(transcript: string): Promise<boolean> {
     try {
-      const response = await this.groq.chat.completions.create({
-        model: "llama-3.1-8b-instant",
-        messages: [
-          {
-            role: "system",
-            content: `Ты - детектор вопросов на техническом собеседовании.
+      return await this.withKeyRotation(async (client) => {
+        const response = await client.chat.completions.create({
+          model: "llama-3.1-8b-instant",
+          messages: [
+            {
+              role: "system",
+              content: `Ты - детектор вопросов на техническом собеседовании.
 ВОПРОС (отвечай "YES"):
 - Прямые вопросы: "Что такое React?", "Расскажите о себе"
 - Просьбы объяснить: "Объясните разницу между...", "Опишите процесс..."
@@ -64,20 +96,21 @@ export class GroqService {
 - Приветствия, утверждения, шум, фразы < 3 слов
 
 Отвечай ТОЛЬКО "YES" или "NO".`,
-          },
-          {
-            role: "user",
-            content: `Текст: "${transcript}"`,
-          },
-        ],
-        max_tokens: 5,
-        temperature: 0,
-      });
+            },
+            {
+              role: "user",
+              content: `Текст: "${transcript}"`,
+            },
+          ],
+          max_tokens: 5,
+          temperature: 0,
+        });
 
-      const answer = response.choices[0]?.message?.content
-        ?.trim()
-        .toUpperCase();
-      return answer === "YES";
+        const answer = response.choices[0]?.message?.content
+          ?.trim()
+          .toUpperCase();
+        return answer === "YES";
+      }, "DETECTION_ERROR");
     } catch (error) {
       console.error("Groq question detection error:", error);
       // При ошибке считаем вопросом — безопаснее
@@ -93,36 +126,39 @@ export class GroqService {
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
   ): Promise<string> {
-    return this.withRetry(async () => {
-      try {
-        const response = await this.groq.chat.completions.create({
-          model: "llama-3.3-70b-versatile",
-          messages: [
-            { role: "system", content: this.getSystemPrompt(mode) },
-            {
-              role: "user",
-              content: this.buildPrompt(transcript, mode, context),
-            },
-          ],
-          stream: false,
-        });
+    return this.withKeyRotation(async (client) => {
+      const response = await client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: this.getSystemPrompt(mode) },
+          {
+            role: "user",
+            content: this.buildPrompt(transcript, mode, context),
+          },
+        ],
+        stream: false,
+      });
 
-        return response.choices[0]?.message?.content ?? "";
-      } catch (error: any) {
-        throw this.wrapError(error, "GENERATION_ERROR");
-      }
-    });
+      return response.choices[0]?.message?.content ?? "";
+    }, "GENERATION_ERROR");
   }
 
   /**
-   * Стриминг ответа — возвращает AsyncGenerator чанков текста
+   * Стриминг ответа — возвращает AsyncGenerator чанков текста.
+   * Ротация ключей здесь происходит при ошибке до начала стрима.
    */
   async *generateResponseStream(
     transcript: string,
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
   ): AsyncGenerator<string, void, unknown> {
-    const stream = await this.groq.chat.completions.create({
+    // Пробуем каждый доступный ключ до получения стрима
+    const client = await this.pickClientWithRetry(async (c) => {
+      // Просто проверяем, что можем начать запрос — исключение выбросится сразу
+      return c;
+    });
+
+    const stream = await client.chat.completions.create({
       model: "llama-3.3-70b-versatile",
       messages: [
         { role: "system", content: this.getSystemPrompt(mode) },
@@ -137,6 +173,129 @@ export class GroqService {
         yield content;
       }
     }
+  }
+
+  // ─── Ключевая логика ротации ─────────────────────────────────────────────────
+
+  /**
+   * Выполняет operation, перебирая ключи при ошибках rate-limit / сервера.
+   * Если все ключи исчерпаны — бросает последнюю ошибку.
+   */
+  private async withKeyRotation<T>(
+    operation: (client: Groq) => Promise<T>,
+    fallbackCode: string,
+  ): Promise<T> {
+    const totalKeys = this.clients.length;
+    let lastError: unknown;
+
+    for (let attempt = 0; attempt < totalKeys; attempt++) {
+      const keyIndex = this.getNextAvailableKeyIndex();
+
+      if (keyIndex === -1) {
+        // Все ключи заблокированы — ждём минимальное время до разблокировки
+        const waitMs = this.msUntilNextKeyAvailable();
+        console.warn(
+          `[GroqService] All keys rate-limited. Waiting ${waitMs}ms...`,
+        );
+        await this.sleep(waitMs);
+        continue;
+      }
+
+      this.currentKeyIndex = keyIndex;
+      const client = this.clients[keyIndex];
+
+      try {
+        return await operation(client);
+      } catch (error: any) {
+        lastError = error;
+        const wrapped = this.wrapError(error, fallbackCode);
+
+        if (this.isRateLimitError(wrapped)) {
+          // Блокируем ключ на 60 секунд и переходим к следующему
+          const blockMs = this.extractRetryAfter(error) ?? 60_000;
+          this.keyBlockedUntil[keyIndex] = Date.now() + blockMs;
+          console.warn(
+            `[GroqService] Key #${keyIndex + 1} rate-limited. Blocked for ${blockMs}ms. Trying next key...`,
+          );
+          continue;
+        }
+
+        if (this.isServerError(wrapped) && totalKeys > 1) {
+          console.warn(
+            `[GroqService] Key #${keyIndex + 1} server error (${wrapped.status}). Trying next key...`,
+          );
+          // Помечаем ключ как ненадёжный на 10 секунд
+          this.keyBlockedUntil[keyIndex] = Date.now() + 10_000;
+          continue;
+        }
+
+        // Не ретраябельная ошибка — бросаем сразу
+        throw wrapped;
+      }
+    }
+
+    // Все ключи не справились
+    throw this.wrapError(lastError, fallbackCode);
+  }
+
+  /**
+   * Вспомогательный метод для generateResponseStream:
+   * возвращает первый доступный клиент без выполнения реального запроса.
+   */
+  private async pickClientWithRetry(_: (c: Groq) => Promise<Groq>): Promise<Groq> {
+    const keyIndex = this.getNextAvailableKeyIndex();
+    if (keyIndex !== -1) {
+      this.currentKeyIndex = keyIndex;
+      return this.clients[keyIndex];
+    }
+    const waitMs = this.msUntilNextKeyAvailable();
+    await this.sleep(waitMs);
+    const fallbackIndex = this.getNextAvailableKeyIndex();
+    return this.clients[fallbackIndex !== -1 ? fallbackIndex : 0];
+  }
+
+  /**
+   * Возвращает индекс следующего незаблокированного ключа (round-robin).
+   * Возвращает -1, если все ключи заблокированы.
+   */
+  private getNextAvailableKeyIndex(): number {
+    const now = Date.now();
+    const total = this.clients.length;
+
+    for (let i = 0; i < total; i++) {
+      const idx = (this.currentKeyIndex + i) % total;
+      if (this.keyBlockedUntil[idx] <= now) {
+        return idx;
+      }
+    }
+    return -1;
+  }
+
+  /** Сколько миллисекунд до разблокировки первого ключа */
+  private msUntilNextKeyAvailable(): number {
+    const now = Date.now();
+    const min = Math.min(...this.keyBlockedUntil);
+    return Math.max(0, min - now);
+  }
+
+  private isRateLimitError(error: OpenAIError): boolean {
+    return error.status === 429;
+  }
+
+  private isServerError(error: OpenAIError): boolean {
+    return error.status >= 500 && error.status <= 599;
+  }
+
+  /** Пытается извлечь Retry-After из заголовков ответа Groq SDK */
+  private extractRetryAfter(error: any): number | undefined {
+    const retryAfter =
+      error?.headers?.["retry-after"] ??
+      error?.response?.headers?.["retry-after"];
+    if (retryAfter) {
+      const seconds = parseInt(retryAfter, 10);
+      if (!isNaN(seconds)) return seconds * 1000;
+    }
+    return undefined;
   }
 
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
@@ -189,6 +348,7 @@ export class GroqService {
   }
 
   private wrapError(error: any, fallbackCode: string): OpenAIError {
+    if (error instanceof OpenAIError) return error;
     if (error?.status) {
       return new OpenAIError(
         error.message ?? "Groq API error",
@@ -201,29 +361,6 @@ export class GroqService {
       500,
       fallbackCode,
     );
-  }
-
-  private async withRetry<T>(
-    operation: () => Promise<T>,
-    attempt = 0,
-  ): Promise<T> {
-    try {
-      return await operation();
-    } catch (error) {
-      if (error instanceof OpenAIError) {
-        const shouldRetry =
-          (error.status === 429 ||
-            error.status >= 500 ||
-            error.status === 408) &&
-          attempt < this.maxRetries;
-
-        if (shouldRetry) {
-          await this.sleep(Math.pow(2, attempt) * 1000);
-          return this.withRetry(operation, attempt + 1);
-        }
-      }
-      throw error;
-    }
   }
 
   private sleep(ms: number): Promise<void> {

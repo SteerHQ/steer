@@ -127,12 +127,18 @@ export const useAppStore = create<AppStore>((set) => ({
     })),
 
   // Set error state
+  // Only stop capture on critical errors (device errors), not pipeline errors
   setError: (error: ErrorResponse | null) =>
-    set((state) => ({
-      error,
-      isProcessing: false,
-      isCapturing: error ? false : state.isCapturing,
-    })),
+    set((state) => {
+      const stopCapture = error
+        ? error.code === 'DEVICE_NOT_FOUND' || error.code === 'CAPTURE_START_ERROR'
+        : false;
+      return {
+        error,
+        isProcessing: false,
+        isCapturing: stopCapture ? false : state.isCapturing,
+      };
+    }),
 
   // Set processing state
   setProcessing: (isProcessing: boolean) =>
