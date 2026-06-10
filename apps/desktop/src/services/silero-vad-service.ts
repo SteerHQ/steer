@@ -1,4 +1,15 @@
 import { NonRealTimeVAD } from "@ricky0123/vad-web";
+import * as ort from "onnxruntime-web";
+
+// Указываем ORT, где искать WASM и .mjs файлы.
+// vite-plugin-static-copy кладёт их в корень сервера/dist.
+// В dev режиме Vite отдаёт статику из корня проекта через localhost:1420.
+const wasmRoot =
+  typeof window !== "undefined"
+    ? `${window.location.origin}/`
+    : "./";
+
+ort.env.wasm.wasmPaths = wasmRoot;
 
 export interface VADSpeechSegment {
   /** Float32Array аудио сегмент, 16000 Hz, от -1 до 1 */

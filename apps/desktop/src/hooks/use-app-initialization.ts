@@ -82,7 +82,10 @@ export function useAppInitialization({
       }
 
       setApiKeyConfigured(true);
-      await checkAudioDevice();
+      // Mark device as connected optimistically so the capture useEffect fires.
+      // startAudioCapture will set it to false and surface an error if the device
+      // is genuinely unavailable.
+      setAudioDeviceConnected(true);
     } catch (error) {
       console.error("Failed to initialize app:", error);
       setError({
