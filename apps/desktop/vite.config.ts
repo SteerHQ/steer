@@ -1,44 +1,66 @@
 import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
+import { resolve } from "path";
+import { readFileSync } from "fs";
 
 /**
- * Патчит new URL('ort-wasm-*.mjs', import.meta.url) → '/ort-wasm-*.mjs'
- * в коде onnxruntime-web, чтобы Rolldown/Rollup не копировал WASM в dist/assets/.
- * Файлы уже лежат в public/ и попадают в корень dist/ автоматически.
- * Работает и при production build (transform hook), и при dev prebundle
- * (через optimizeDeps.rolldownOptions.plugins).
+ * Решает проблему загрузки ort-wasm-simd-threaded.*.mjs в dev и build.
+ *
+ * В dev режиме onnxruntime-web (внутри prebundle @ricky0123_vad-web.js) делает
+ * динамический import() с URL относительно import.meta.url (.vite/deps/),
+ * где файлов нет. Перехватываем эти HTTP-запросы и отдаём файлы из public/.
+ *
+ * В production build патчим new URL('ort-wasm-*.mjs', import.meta.url) → '/ort-wasm-*.mjs'
+ * чтобы Rolldown не копировал WASM в dist/assets/.
  */
-function ortWasmPublicPathPlugin(): Plugin {
+function ortWasmPlugin(): Plugin {
+  const publicDir = resolve(__dirname, "public");
+
   const WASM_URL_RE =
     /new URL\(["']([^"']*ort-wasm[^"']*)["']\s*,\s*import\.meta\.url\)/g;
   const replacer = (_m: string, filename: string) =>
     JSON.stringify(`/${filename}`);
 
-  const patchTransform = {
-    name: "ort-wasm-public-path-inner",
-    transform(code: string, id: string) {
-      if (id.includes("onnxruntime-web") && code.includes("ort-wasm-simd-threaded")) {
-        return { code: code.replace(WASM_URL_RE, replacer) };
-      }
-      return null;
-    },
-  };
-
   return {
-    name: "ort-wasm-public-path",
-    // Применяем патч при prebundle (Vite 8 использует Rolldown)
-    config() {
-      return {
-        optimizeDeps: {
-          rolldownOptions: {
-            plugins: [patchTransform],
-          },
-        },
-      };
+    name: "ort-wasm",
+    enforce: "pre",
+
+    // Dev: middleware перехватывает запросы к ort-wasm .mjs/.wasm из любого URL
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url ?? "";
+        // Убираем query string
+        const pathname = url.split("?")[0];
+        const basename = pathname.split("/").pop() ?? "";
+
+        if (
+          basename.startsWith("ort-wasm-simd-threaded") &&
+          (basename.endsWith(".mjs") || basename.endsWith(".wasm"))
+        ) {
+          const filePath = resolve(publicDir, basename);
+          try {
+            const content = readFileSync(filePath);
+            const mime = basename.endsWith(".mjs")
+              ? "text/javascript"
+              : "application/wasm";
+            res.setHeader("Content-Type", mime);
+            res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+            res.end(content);
+            return;
+          } catch {
+            // файл не найден — передаём дальше
+          }
+        }
+        next();
+      });
     },
-    // Применяем патч при production build (Rolldown/Rollup)
+
+    // Build: патчим new URL(...) чтобы Rolldown не копировал WASM в assets/
     transform(code, id) {
-      if (id.includes("onnxruntime-web") && code.includes("ort-wasm-simd-threaded")) {
+      if (
+        id.includes("onnxruntime-web") &&
+        code.includes("ort-wasm-simd-threaded")
+      ) {
         return code.replace(WASM_URL_RE, replacer);
       }
       return null;
@@ -49,10 +71,9 @@ function ortWasmPublicPathPlugin(): Plugin {
 export default defineConfig({
   plugins: [
     react(),
-    ortWasmPublicPathPlugin(),
+    ortWasmPlugin(),
   ],
-  // @ricky0123/vad-web — CJS, нужен prebundle (CJS → ESM).
-  // onnxruntime-web тоже prebundle — наш плагин патчит new URL(...) при prebundle.
+  // @ricky0123/vad-web — CJS, нужен prebundle (CJS → ESM)
   optimizeDeps: {
     include: ["@ricky0123/vad-web"],
   },
