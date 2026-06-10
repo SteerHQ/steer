@@ -16,7 +16,9 @@ const openai = new Hono();
 openai.post("/transcribe", async (c) => {
   const apiKeys = getGroqKeys();
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const arrayBuffer = await c.req.arrayBuffer();
@@ -26,7 +28,9 @@ openai.post("/transcribe", async (c) => {
 
   const audioArray = new Uint8Array(arrayBuffer);
   if (audioArray.length < 44) {
-    throw new ValidationError("Invalid audio data: file too small to be a valid WAV");
+    throw new ValidationError(
+      "Invalid audio data: file too small to be a valid WAV",
+    );
   }
 
   const riffHeader = String.fromCharCode(...audioArray.slice(0, 4));
@@ -60,7 +64,9 @@ openai.post("/transcribe", async (c) => {
 openai.post("/generate", async (c) => {
   const apiKeys = getGroqKeys();
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const body = await c.req.json();
@@ -71,7 +77,12 @@ openai.post("/generate", async (c) => {
     throw new ValidationError("Transcript must be a non-empty string");
   }
 
-  const validModes = ["general", "interview", "algorithm", "cheatsheet"] as const;
+  const validModes = [
+    "general",
+    "interview",
+    "algorithm",
+    "cheatsheet",
+  ] as const;
   type Mode = (typeof validModes)[number];
   const mode: Mode = validModes.includes(body.mode) ? body.mode : "general";
 
@@ -79,7 +90,12 @@ openai.post("/generate", async (c) => {
   const groqService = new GroqService(apiKeys);
 
   if (!useStreaming) {
-    const response = await groqService.generateResponse(body.transcript, mode, body.context);
+    const response = await groqService.generateResponse(
+      body.transcript,
+      mode,
+      body.context,
+      body.jobDescription,
+    );
     return c.json({ success: true, response, mode, streaming: false });
   }
 
@@ -90,6 +106,7 @@ openai.post("/generate", async (c) => {
           body.transcript,
           mode,
           body.context,
+          body.jobDescription,
         )) {
           const data = `data: ${JSON.stringify({ chunk })}\n\n`;
           controller.enqueue(new TextEncoder().encode(data));
@@ -116,7 +133,9 @@ openai.post("/generate", async (c) => {
 openai.post("/detect-question", async (c) => {
   const apiKeys = getGroqKeys();
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const body = await c.req.json();

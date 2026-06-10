@@ -32,6 +32,7 @@ export interface GenerateRequest {
     question: string;
     answer: string;
   }>;
+  jobDescription?: string; // Описание вакансии для персонализации промпта
 }
 
 // --- Realtime API типы ---

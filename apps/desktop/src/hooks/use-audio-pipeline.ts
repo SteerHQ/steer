@@ -2,7 +2,10 @@ import { useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store";
 import { InterviewService } from "../services/interview-service";
-import { SileroVADService, float32ToWavBlob } from "../services/silero-vad-service";
+import {
+  SileroVADService,
+  float32ToWavBlob,
+} from "../services/silero-vad-service";
 
 export type SpeechState = "idle" | "speaking" | "paused";
 
@@ -21,6 +24,7 @@ export function useAudioPipeline({
     addMessage,
     addToInterviewContext,
     getInterviewContext,
+    getJobDescription,
   } = useAppStore();
 
   const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
@@ -50,7 +54,10 @@ export function useAudioPipeline({
         console.log("✅ Silero VAD загружен и готов");
       })
       .catch((err) => {
-        console.warn("⚠️ Silero VAD не загрузился, используется RMS fallback:", err);
+        console.warn(
+          "⚠️ Silero VAD не загрузился, используется RMS fallback:",
+          err,
+        );
       });
   };
 
@@ -165,7 +172,9 @@ export function useAudioPipeline({
       return;
     }
 
-    console.log(`📊 Processing ${audioBuffer.length} bytes of accumulated audio`);
+    console.log(
+      `📊 Processing ${audioBuffer.length} bytes of accumulated audio`,
+    );
     console.time("⚡ PCM to WAV conversion");
 
     const wavData = await invoke<number[]>("convert_pcm_to_wav", {
@@ -181,12 +190,14 @@ export function useAudioPipeline({
   };
 
   const processTranscript = async (audioData: Uint8Array) => {
-    const transcript = await interviewServiceRef.current!.transcribeAudio(audioData);
+    const transcript =
+      await interviewServiceRef.current!.transcribeAudio(audioData);
     console.log("Transcript:", transcript);
 
     if (!transcript.trim()) return;
 
-    const isQuestion = await interviewServiceRef.current!.detectQuestion(transcript);
+    const isQuestion =
+      await interviewServiceRef.current!.detectQuestion(transcript);
     console.log("Is question:", isQuestion);
 
     if (!isQuestion) {
@@ -197,13 +208,18 @@ export function useAudioPipeline({
     addMessage("user", transcript);
 
     const context = mode === "interview" ? getInterviewContext() : undefined;
-    const streamingEnabled = localStorage.getItem("streaming_enabled") !== "false";
+    const jobDescription =
+      mode === "interview" ? getJobDescription() : undefined;
+    const streamingEnabled =
+      localStorage.getItem("streaming_enabled") !== "false";
 
-    console.log(`⚡ Starting response generation (streaming: ${streamingEnabled})...`);
+    console.log(
+      `⚡ Starting response generation (streaming: ${streamingEnabled})...`,
+    );
     console.time("⚡ Total response time");
 
     const response = await interviewServiceRef.current!.generateResponseStream(
-      { transcript, mode, context },
+      { transcript, mode, context, jobDescription },
       (partialResponse) => {
         setResponse(partialResponse);
         addMessage("assistant", partialResponse);
@@ -212,7 +228,10 @@ export function useAudioPipeline({
     );
 
     console.timeEnd("⚡ Total response time");
-    console.log("✅ Response generation completed, final length:", response.length);
+    console.log(
+      "✅ Response generation completed, final length:",
+      response.length,
+    );
 
     setResponse(response);
     if (mode === "interview") addToInterviewContext(transcript, response);
@@ -220,7 +239,8 @@ export function useAudioPipeline({
   };
 
   const processAudioPipeline = async () => {
-    const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
+    const analysisEnabled =
+      localStorage.getItem("analysis_enabled") !== "false";
 
     if (!analysisEnabled || !interviewServiceRef.current) {
       return;
@@ -244,7 +264,8 @@ export function useAudioPipeline({
 
       if (
         error instanceof Error &&
-        (error.message.includes("No audio data") || error.message.includes("too small"))
+        (error.message.includes("No audio data") ||
+          error.message.includes("too small"))
       ) {
         return;
       }
@@ -252,7 +273,10 @@ export function useAudioPipeline({
       if (error instanceof Error) {
         let errorCode = "PIPELINE_ERROR";
         if (error.message.includes("API key")) errorCode = "API_ERROR";
-        else if (error.message.includes("network") || error.message.includes("fetch"))
+        else if (
+          error.message.includes("network") ||
+          error.message.includes("fetch")
+        )
           errorCode = "NETWORK_ERROR";
         else if (error.message.includes("OpenAI")) errorCode = "OPENAI_ERROR";
 
