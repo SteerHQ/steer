@@ -2,25 +2,44 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
- * Плагин предотвращает копирование ORT WASM/MJS файлов в dist/assets/.
- * ORT использует `new URL('ort-wasm-*.mjs', import.meta.url)` — Vite это
- * перехватывает и копирует файл в assets/. Мы заменяем это на прямой URL
- * из корня, где файлы уже лежат из public/.
+ * Патчит new URL('ort-wasm-*.mjs', import.meta.url) → '/ort-wasm-*.mjs'
+ * в коде onnxruntime-web, чтобы Rolldown/Rollup не копировал WASM в dist/assets/.
+ * Файлы уже лежат в public/ и попадают в корень dist/ автоматически.
+ * Работает и при production build (transform hook), и при dev prebundle
+ * (через optimizeDeps.rolldownOptions.plugins).
  */
 function ortWasmPublicPathPlugin(): Plugin {
+  const WASM_URL_RE =
+    /new URL\(["']([^"']*ort-wasm[^"']*)["']\s*,\s*import\.meta\.url\)/g;
+  const replacer = (_m: string, filename: string) =>
+    JSON.stringify(`/${filename}`);
+
+  const patchTransform = {
+    name: "ort-wasm-public-path-inner",
+    transform(code: string, id: string) {
+      if (id.includes("onnxruntime-web") && code.includes("ort-wasm-simd-threaded")) {
+        return { code: code.replace(WASM_URL_RE, replacer) };
+      }
+      return null;
+    },
+  };
+
   return {
     name: "ort-wasm-public-path",
+    // Применяем патч при prebundle (Vite 8 использует Rolldown)
+    config() {
+      return {
+        optimizeDeps: {
+          rolldownOptions: {
+            plugins: [patchTransform],
+          },
+        },
+      };
+    },
+    // Применяем патч при production build (Rolldown/Rollup)
     transform(code, id) {
-      if (
-        id.includes("onnxruntime-web") &&
-        code.includes("ort-wasm-simd-threaded")
-      ) {
-        // Заменяем new URL('ort-wasm-*.mjs', import.meta.url) → прямую строку
-        // чтобы Rollup не копировал файл в assets/
-        return code.replace(
-          /new URL\(["']([^"']*ort-wasm[^"']*)["']\s*,\s*import\.meta\.url\)/g,
-          (_match, filename) => JSON.stringify(`/${filename}`),
-        );
+      if (id.includes("onnxruntime-web") && code.includes("ort-wasm-simd-threaded")) {
+        return code.replace(WASM_URL_RE, replacer);
       }
       return null;
     },
@@ -32,17 +51,16 @@ export default defineConfig({
     react(),
     ortWasmPublicPathPlugin(),
   ],
-  // Не оптимизировать onnxruntime-web через Vite prebundling —
-  // ORT загружает WASM через fetch/динамический import и должен брать
-  // файлы из корня сервера (public/), а не из node_modules/.vite/deps/
+  // @ricky0123/vad-web — CJS, нужен prebundle (CJS → ESM).
+  // onnxruntime-web тоже prebundle — наш плагин патчит new URL(...) при prebundle.
   optimizeDeps: {
-    exclude: ["onnxruntime-web", "@ricky0123/vad-web"],
+    include: ["@ricky0123/vad-web"],
   },
   clearScreen: false,
   server: {
     port: 1420,
     strictPort: true,
-    // Заголовки для SharedArrayBuffer (нужен ORT threaded WASM)
+    // Заголовки для SharedArrayBuffer (требуется ORT threaded WASM)
     headers: {
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
