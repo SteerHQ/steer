@@ -8,7 +8,6 @@ import { Chat } from "./components/chat";
 import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AppActions } from "./components/app-actions";
-import { useRealtime } from "./hooks";
 import { useAppInitialization } from "./hooks/use-app-initialization";
 import { useAudioPipeline } from "./hooks/use-audio-pipeline";
 import type { AppConfig } from "@steer/types";
@@ -34,8 +33,6 @@ function App() {
     clearInterviewContext,
   } = useAppStore();
 
-  const realtime = useRealtime();
-
   const {
     deviceSampleRateRef,
     initializeApp,
@@ -45,7 +42,7 @@ function App() {
   } = useAppInitialization({ config, setConfig, setShowSettings });
 
   const { currentAudioLevel, speechState, processAudioPipeline, initServices } =
-    useAudioPipeline({ realtimeEnabled, deviceSampleRateRef });
+    useAudioPipeline({ deviceSampleRateRef });
 
   // Initialize app on mount
   useEffect(() => {
@@ -59,16 +56,6 @@ function App() {
     }
   }, [apiKeyConfigured, audioDeviceConnected, showSettings]);
 
-  // Manage Realtime connection
-  useEffect(() => {
-    if (realtimeEnabled && isCapturing) {
-      realtime.connect(mode);
-    } else {
-      realtime.disconnect();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [realtimeEnabled, isCapturing, mode]);
-
   // Start audio processing pipeline
   useEffect(() => {
     if (!isCapturing) return;
@@ -80,8 +67,6 @@ function App() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  // processAudioPipeline and initServices are stable refs from hooks but
-  // must be listed to avoid capturing a stale closure if they ever change.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCapturing, processAudioPipeline, initServices]);
 
@@ -124,12 +109,6 @@ function App() {
     if (isProcessing) return "processing";
     if (isCapturing) return "capturing";
     return "idle";
-  };
-
-  const handleToggleRealtime = () => {
-    const next = !realtimeEnabled;
-    setRealtimeEnabled(next);
-    localStorage.setItem("realtime_enabled", next.toString());
   };
 
   if (showSettings) {
@@ -203,9 +182,6 @@ function App() {
       </div>
 
       <AppActions
-        realtimeEnabled={realtimeEnabled}
-        realtimeStatus={realtime.status}
-        onToggleRealtime={handleToggleRealtime}
         onOpenSettings={() => setShowSettings(true)}
         sampleRate={deviceSampleRateRef.current}
       />

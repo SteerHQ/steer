@@ -7,12 +7,10 @@ import { SileroVADService, float32ToWavBlob } from "../services/silero-vad-servi
 export type SpeechState = "idle" | "speaking" | "paused";
 
 interface UseAudioPipelineOptions {
-  realtimeEnabled: boolean;
   deviceSampleRateRef: React.MutableRefObject<number>;
 }
 
 export function useAudioPipeline({
-  realtimeEnabled,
   deviceSampleRateRef,
 }: UseAudioPipelineOptions) {
   const {
@@ -224,7 +222,7 @@ export function useAudioPipeline({
   const processAudioPipeline = async () => {
     const analysisEnabled = localStorage.getItem("analysis_enabled") !== "false";
 
-    if (!analysisEnabled || realtimeEnabled || !interviewServiceRef.current) {
+    if (!analysisEnabled || !interviewServiceRef.current) {
       return;
     }
 
