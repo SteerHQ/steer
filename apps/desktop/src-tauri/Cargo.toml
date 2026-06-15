@@ -23,7 +23,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"
 dirs = "5.0"
 chrono = "0.4"
-rubato = "0.15"
+rubato = "3.0"
 
 # WASAPI for Windows loopback capture
 [target.'cfg(windows)'.dependencies]
