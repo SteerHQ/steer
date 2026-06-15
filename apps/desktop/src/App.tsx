@@ -10,6 +10,7 @@ import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AppActions } from "./components/app-actions";
 import { useAppInitialization } from "./hooks/use-app-initialization";
 import { useAudioPipeline } from "./hooks/use-audio-pipeline";
+import { useStealth } from "./hooks/use-stealth";
 import type { AppConfig } from "@steer/types";
 
 function App() {
@@ -44,6 +45,8 @@ function App() {
   const { currentAudioLevel, speechState, processAudioPipeline, initServices } =
     useAudioPipeline({ deviceSampleRateRef });
 
+  const { stealthEnabled, toggleStealth } = useStealth();
+
   // Initialize app on mount
   useEffect(() => {
     initializeApp();
@@ -51,7 +54,12 @@ function App() {
 
   // Start audio capture when ready
   useEffect(() => {
-    if (apiKeyConfigured && audioDeviceConnected && !isCapturing && !showSettings) {
+    if (
+      apiKeyConfigured &&
+      audioDeviceConnected &&
+      !isCapturing &&
+      !showSettings
+    ) {
       startAudioCapture();
     }
   }, [apiKeyConfigured, audioDeviceConnected, showSettings]);
@@ -67,7 +75,7 @@ function App() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isCapturing, processAudioPipeline, initServices]);
 
   const handleSettingsSaveWrapper = (newConfig: AppConfig) =>
@@ -86,7 +94,8 @@ function App() {
       case "CAPTURE_START_ERROR":
         await checkAudioDevice();
         // Re-read fresh state from store after the async check completes
-        if (useAppStore.getState().audioDeviceConnected) await startAudioCapture();
+        if (useAppStore.getState().audioDeviceConnected)
+          await startAudioCapture();
         break;
       case "API_ERROR":
       case "OPENAI_ERROR":
@@ -104,7 +113,11 @@ function App() {
 
   const handleErrorDismiss = () => setError(null);
 
-  const getCurrentStatus = (): "capturing" | "processing" | "idle" | "error" => {
+  const getCurrentStatus = ():
+    | "capturing"
+    | "processing"
+    | "idle"
+    | "error" => {
     if (error) return "error";
     if (isProcessing) return "processing";
     if (isCapturing) return "capturing";
@@ -123,7 +136,10 @@ function App() {
 
   return (
     <div className="app-container">
-      <WindowControls />
+      <WindowControls
+        stealthEnabled={stealthEnabled}
+        onToggleStealth={toggleStealth}
+      />
 
       {error && (
         <ErrorDisplay
