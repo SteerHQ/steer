@@ -20,7 +20,6 @@
     "core:window:allow-is-visible",
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-ignore-cursor-events",
-    "http:default",
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "global-shortcut:allow-unregister-all",

@@ -130,6 +130,12 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
         {onToggleStealth && (
           <button
             onClick={onToggleStealth}
+            aria-label={
+              stealthEnabled
+                ? "Stealth mode enabled: hidden from screen capture"
+                : "Stealth mode disabled: visible in screen capture"
+            }
+            aria-pressed={stealthEnabled}
             style={{
               ...buttonStyle,
               width: "32px",

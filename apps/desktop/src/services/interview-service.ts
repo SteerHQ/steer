@@ -75,13 +75,18 @@ export class InterviewService {
 
       const decoder = new TextDecoder();
       let fullResponse = "";
+      let sseBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split("\n");
+        // Prepend any incomplete line from the previous iteration
+        const raw = sseBuffer + chunk;
+        const lines = raw.split("\n");
+        // The last element may be an incomplete line — hold it for the next chunk
+        sseBuffer = lines.pop() ?? "";
 
         for (const line of lines) {
           if (line.startsWith("data: ")) {
@@ -184,7 +189,7 @@ export class InterviewService {
    * Detect if transcript contains a question
    */
   async detectQuestion(transcript: string): Promise<boolean> {
-    logger.info("Detecting question", { transcript });
+    logger.info("Detecting question");
 
     try {
       const response = await this.apiClient.post<{
@@ -222,7 +227,7 @@ export class InterviewService {
     // Use same transcription logic but mark as question
     const transcript = await this.transcribeAudio(audioData);
 
-    logger.info("Question transcribed", { question: transcript });
+    logger.info("Question transcribed successfully");
     return transcript;
   }
 }

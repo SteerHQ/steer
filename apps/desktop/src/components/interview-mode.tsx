@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { AssistantMode } from "@steer/types";
 import { useAppStore } from "../store/app-store";
 import "./interview-mode.css";
@@ -21,6 +21,11 @@ export function InterviewMode({
   const jobDescription = interviewContext?.jobDescription ?? "";
   const [localJob, setLocalJob] = useState(jobDescription);
   const [jobExpanded, setJobExpanded] = useState(false);
+
+  // Keep localJob in sync when the store's jobDescription changes (e.g. mode switch)
+  useEffect(() => {
+    setLocalJob(interviewContext?.jobDescription ?? "");
+  }, [interviewContext?.jobDescription]);
 
   const modes: Array<{
     value: AssistantMode;

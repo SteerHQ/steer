@@ -10,13 +10,18 @@ export function parseGroqApiKeys(
   keysEnv?: string,
   fallbackKeyEnv?: string,
 ): string[] {
-  // Prefer keysEnv only when it's non-empty; otherwise fall back to fallbackKeyEnv
-  const raw = keysEnv?.trim().length ? keysEnv : (fallbackKeyEnv ?? "");
-  const keys = raw
-    .split(",")
-    .map((k) => k.trim())
-    .filter((k) => k.length > 0);
-  return keys;
+  // First try to parse keysEnv; fall back to fallbackKeyEnv only if the
+  // parsed result is empty (handles cases where keysEnv is all whitespace/commas)
+  const parseRaw = (raw: string) =>
+    raw
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+  const keys = parseRaw(keysEnv ?? "");
+  if (keys.length > 0) return keys;
+
+  return parseRaw(fallbackKeyEnv ?? "");
 }
 
 export class GroqService {

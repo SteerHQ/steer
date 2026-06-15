@@ -26,6 +26,13 @@ openai.post("/transcribe", async (c) => {
     throw new ValidationError("Missing audio data in request body");
   }
 
+  const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
+  if (arrayBuffer.byteLength > MAX_AUDIO_SIZE) {
+    throw new ValidationError(
+      `Audio file too large: ${arrayBuffer.byteLength} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,
+    );
+  }
+
   const audioArray = new Uint8Array(arrayBuffer);
   if (audioArray.length < 44) {
     throw new ValidationError(
@@ -54,7 +61,7 @@ openai.post("/transcribe", async (c) => {
   const groqService = new GroqService(apiKeys);
   const result = await groqService.transcribeAudio(audioBlob, previousContext);
 
-  console.log("[transcription]:", result.text);
+  console.log("[transcription]: success, length:", result.text.length);
   return c.json({ success: true, transcription: result });
 });
 
@@ -75,6 +82,30 @@ openai.post("/generate", async (c) => {
   }
   if (typeof body.transcript !== "string" || body.transcript.trim() === "") {
     throw new ValidationError("Transcript must be a non-empty string");
+  }
+  if (body.context !== undefined) {
+    if (!Array.isArray(body.context)) {
+      throw new ValidationError("Field 'context' must be an array");
+    }
+    for (let i = 0; i < body.context.length; i++) {
+      const item = body.context[i];
+      if (
+        typeof item !== "object" ||
+        item === null ||
+        typeof item.question !== "string" ||
+        typeof item.answer !== "string"
+      ) {
+        throw new ValidationError(
+          `context[${i}] must be an object with string fields 'question' and 'answer'`,
+        );
+      }
+    }
+  }
+  if (
+    body.jobDescription !== undefined &&
+    typeof body.jobDescription !== "string"
+  ) {
+    throw new ValidationError("Field 'jobDescription' must be a string");
   }
 
   const validModes = [

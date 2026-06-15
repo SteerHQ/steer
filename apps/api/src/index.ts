@@ -39,22 +39,21 @@ app.onError(errorHandler);
 
 // Verify Groq API keys are loaded
 const groqKeysRaw =
-  process.env.GROQ_API_KEYS?.trim() ||
-  process.env.GROQ_API_KEY?.trim() ||
-  "";
+  process.env.GROQ_API_KEYS?.trim() || process.env.GROQ_API_KEY?.trim() || "";
 const groqKeys = groqKeysRaw
   .split(",")
   .map((k) => k.trim())
   .filter((k) => k.length > 0);
 
 if (groqKeys.length === 0) {
-  console.error("❌ Neither GROQ_API_KEYS nor GROQ_API_KEY found in environment variables!");
+  console.error(
+    "❌ Neither GROQ_API_KEYS nor GROQ_API_KEY found in environment variables!",
+  );
   console.error("   Please create .env file in project root with:");
   console.error("   GROQ_API_KEYS=your_key_here");
 } else {
-  const keyPreview = groqKeys[0].substring(0, 7) + "...";
   const label = groqKeys.length > 1 ? `${groqKeys.length} keys` : "1 key";
-  console.log(`✅ Groq API keys loaded: ${label} (first: ${keyPreview})`);
+  console.log(`✅ Groq API keys loaded: ${label}`);
 }
 
 // Start server

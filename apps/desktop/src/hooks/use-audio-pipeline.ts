@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store";
 import { InterviewService } from "../services/interview-service";
@@ -39,7 +39,7 @@ export function useAudioPipeline({
   const silenceStartTimeRef = useRef<number>(0);
   const isSpeechActiveRef = useRef<boolean>(false);
 
-  const initServices = () => {
+  const initServices = useCallback(() => {
     interviewServiceRef.current = new InterviewService();
 
     SileroVADService.create({
@@ -59,7 +59,7 @@ export function useAudioPipeline({
           err,
         );
       });
-  };
+  }, []);
 
   const processWithSileroVAD = async () => {
     const audioLevel = await invoke<number>("get_audio_level");
@@ -238,7 +238,7 @@ export function useAudioPipeline({
     setError(null);
   };
 
-  const processAudioPipeline = async () => {
+  const processAudioPipeline = useCallback(async () => {
     const analysisEnabled =
       localStorage.getItem("analysis_enabled") !== "false";
 
@@ -286,7 +286,17 @@ export function useAudioPipeline({
       isProcessingRef.current = false;
       setProcessing(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    mode,
+    setError,
+    setProcessing,
+    setResponse,
+    addMessage,
+    addToInterviewContext,
+    getInterviewContext,
+    getJobDescription,
+  ]);
 
   return {
     currentAudioLevel,

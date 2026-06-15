@@ -231,6 +231,7 @@ export const useAppStore = create<AppStore>((set) => ({
           ? {
               questions: [],
               startTime: Date.now(),
+              jobDescription: state.interviewContext?.jobDescription,
             }
           : null,
     })),
