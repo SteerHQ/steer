@@ -18,6 +18,22 @@ fn main() {
     tracing::info!("VoiceAssistant starting...");
     
     tauri::Builder::<tauri::Wry>::default()
+        .plugin(tauri_plugin_http::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .setup(|app| {
+            // Включаем защиту от захвата экрана (stealth) с первого кадра.
+            // На Windows это WDA_EXCLUDEFROMCAPTURE: окно видно пользователю,
+            // но не попадает в демонстрацию экрана / запись (Zoom, Meet, OBS).
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                if let Err(e) = window.set_content_protected(true) {
+                    tracing::warn!("Failed to enable content protection: {}", e);
+                } else {
+                    tracing::info!("Content protection (stealth) enabled at startup");
+                }
+            }
+            Ok(())
+        })
         .manage(AudioState::new())
         .invoke_handler(tauri::generate_handler![
             commands::start_audio_capture,

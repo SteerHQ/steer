@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import type { AssistantMode } from '@steer/types';
-import './interview-mode.css';
+import { useState } from "react";
+import type { AssistantMode } from "@steer/types";
+import { useAppStore } from "../store/app-store";
+import "./interview-mode.css";
 
 interface InterviewModeProps {
   currentMode: AssistantMode;
@@ -16,31 +17,40 @@ export function InterviewMode({
   historyCount,
 }: InterviewModeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { interviewContext, setJobDescription } = useAppStore();
+  const jobDescription = interviewContext?.jobDescription ?? "";
+  const [localJob, setLocalJob] = useState(jobDescription);
+  const [jobExpanded, setJobExpanded] = useState(false);
 
-  const modes: Array<{ value: AssistantMode; label: string; icon: string; description: string }> = [
+  const modes: Array<{
+    value: AssistantMode;
+    label: string;
+    icon: string;
+    description: string;
+  }> = [
     {
-      value: 'general',
-      label: 'Общий',
-      icon: '💬',
-      description: 'Обычный режим для любых вопросов',
+      value: "general",
+      label: "Общий",
+      icon: "💬",
+      description: "Обычный режим для любых вопросов",
     },
     {
-      value: 'interview',
-      label: 'Собеседование',
-      icon: '🎯',
-      description: 'Краткие технические ответы с контекстом',
+      value: "interview",
+      label: "Собеседование",
+      icon: "🎯",
+      description: "Краткие технические ответы с контекстом",
     },
     {
-      value: 'algorithm',
-      label: 'Алгоритмы',
-      icon: '🧮',
-      description: 'Помощь с алгоритмическими задачами',
+      value: "algorithm",
+      label: "Алгоритмы",
+      icon: "🧮",
+      description: "Помощь с алгоритмическими задачами",
     },
     {
-      value: 'cheatsheet',
-      label: 'Шпаргалка',
-      icon: '📝',
-      description: 'Быстрые факты и определения',
+      value: "cheatsheet",
+      label: "Шпаргалка",
+      icon: "📝",
+      description: "Быстрые факты и определения",
     },
   ];
 
@@ -55,7 +65,7 @@ export function InterviewMode({
       >
         <span className="mode-icon">{currentModeData?.icon}</span>
         <span className="mode-label">{currentModeData?.label}</span>
-        <span className="mode-arrow">{isExpanded ? '▲' : '▼'}</span>
+        <span className="mode-arrow">{isExpanded ? "▲" : "▼"}</span>
       </button>
 
       {isExpanded && (
@@ -63,7 +73,7 @@ export function InterviewMode({
           {modes.map((mode) => (
             <button
               key={mode.value}
-              className={`mode-option ${currentMode === mode.value ? 'active' : ''}`}
+              className={`mode-option ${currentMode === mode.value ? "active" : ""}`}
               onClick={() => {
                 onModeChange(mode.value);
                 setIsExpanded(false);
@@ -77,7 +87,7 @@ export function InterviewMode({
             </button>
           ))}
 
-          {currentMode === 'interview' && historyCount > 0 && (
+          {currentMode === "interview" && historyCount > 0 && (
             <div className="mode-actions">
               <button
                 className="clear-history-btn"
@@ -88,6 +98,42 @@ export function InterviewMode({
               >
                 🗑️ Очистить историю ({historyCount})
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentMode === "interview" && (
+        <div className="job-description-section">
+          <button
+            className="job-toggle"
+            onClick={() => setJobExpanded(!jobExpanded)}
+          >
+            <span>📋 Вакансия</span>
+            {localJob && <span className="job-indicator">●</span>}
+            <span className="mode-arrow">{jobExpanded ? "▲" : "▼"}</span>
+          </button>
+          {jobExpanded && (
+            <div className="job-textarea-wrap">
+              <textarea
+                className="job-textarea"
+                placeholder="Вставьте текст вакансии — ассистент будет учитывать требования при ответах..."
+                value={localJob}
+                onChange={(e) => setLocalJob(e.target.value)}
+                onBlur={() => setJobDescription(localJob)}
+                rows={6}
+              />
+              {localJob && (
+                <button
+                  className="job-clear-btn"
+                  onClick={() => {
+                    setLocalJob("");
+                    setJobDescription("");
+                  }}
+                >
+                  Очистить
+                </button>
+              )}
             </div>
           )}
         </div>

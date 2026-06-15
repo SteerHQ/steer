@@ -8,9 +8,9 @@ import { Chat } from "./components/chat";
 import { InterviewMode } from "./components/interview-mode";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AppActions } from "./components/app-actions";
-import { useRealtime } from "./hooks";
 import { useAppInitialization } from "./hooks/use-app-initialization";
 import { useAudioPipeline } from "./hooks/use-audio-pipeline";
+import { useStealth } from "./hooks/use-stealth";
 import type { AppConfig } from "@steer/types";
 
 function App() {
@@ -34,8 +34,6 @@ function App() {
     clearInterviewContext,
   } = useAppStore();
 
-  const realtime = useRealtime();
-
   const {
     deviceSampleRateRef,
     initializeApp,
@@ -45,7 +43,9 @@ function App() {
   } = useAppInitialization({ config, setConfig, setShowSettings });
 
   const { currentAudioLevel, speechState, processAudioPipeline, initServices } =
-    useAudioPipeline({ realtimeEnabled, deviceSampleRateRef });
+    useAudioPipeline({ deviceSampleRateRef });
+
+  const { stealthEnabled, toggleStealth } = useStealth();
 
   // Initialize app on mount
   useEffect(() => {
@@ -54,20 +54,15 @@ function App() {
 
   // Start audio capture when ready
   useEffect(() => {
-    if (apiKeyConfigured && audioDeviceConnected && !isCapturing && !showSettings) {
+    if (
+      apiKeyConfigured &&
+      audioDeviceConnected &&
+      !isCapturing &&
+      !showSettings
+    ) {
       startAudioCapture();
     }
   }, [apiKeyConfigured, audioDeviceConnected, showSettings]);
-
-  // Manage Realtime connection
-  useEffect(() => {
-    if (realtimeEnabled && isCapturing) {
-      realtime.connect(mode);
-    } else {
-      realtime.disconnect();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [realtimeEnabled, isCapturing, mode]);
 
   // Start audio processing pipeline
   useEffect(() => {
@@ -80,7 +75,8 @@ function App() {
     }, 5000);
 
     return () => clearInterval(intervalId);
-  }, [isCapturing]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCapturing, processAudioPipeline, initServices]);
 
   const handleSettingsSaveWrapper = (newConfig: AppConfig) =>
     handleSettingsSave(newConfig, isCapturing);
@@ -97,7 +93,9 @@ function App() {
       case "DEVICE_NOT_FOUND":
       case "CAPTURE_START_ERROR":
         await checkAudioDevice();
-        if (audioDeviceConnected) await startAudioCapture();
+        // Re-read fresh state from store after the async check completes
+        if (useAppStore.getState().audioDeviceConnected)
+          await startAudioCapture();
         break;
       case "API_ERROR":
       case "OPENAI_ERROR":
@@ -115,17 +113,15 @@ function App() {
 
   const handleErrorDismiss = () => setError(null);
 
-  const getCurrentStatus = (): "capturing" | "processing" | "idle" | "error" => {
+  const getCurrentStatus = ():
+    | "capturing"
+    | "processing"
+    | "idle"
+    | "error" => {
     if (error) return "error";
     if (isProcessing) return "processing";
     if (isCapturing) return "capturing";
     return "idle";
-  };
-
-  const handleToggleRealtime = () => {
-    const next = !realtimeEnabled;
-    setRealtimeEnabled(next);
-    localStorage.setItem("realtime_enabled", next.toString());
   };
 
   if (showSettings) {
@@ -140,7 +136,10 @@ function App() {
 
   return (
     <div className="app-container">
-      <WindowControls />
+      <WindowControls
+        stealthEnabled={stealthEnabled}
+        onToggleStealth={toggleStealth}
+      />
 
       {error && (
         <ErrorDisplay
@@ -199,10 +198,8 @@ function App() {
       </div>
 
       <AppActions
-        realtimeEnabled={realtimeEnabled}
-        realtimeStatus={realtime.status}
-        onToggleRealtime={handleToggleRealtime}
         onOpenSettings={() => setShowSettings(true)}
+        sampleRate={deviceSampleRateRef.current}
       />
     </div>
   );

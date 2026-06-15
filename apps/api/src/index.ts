@@ -37,23 +37,24 @@ app.route("/api/groq", groqRoutes);
 // Error handling middleware (must be last)
 app.onError(errorHandler);
 
-// Verify API key is loaded
-if (!process.env.OPENAI_API_KEY) {
-  console.error("❌ OPENAI_API_KEY not found in environment variables!");
-  console.error("   Please create .env file in project root with:");
-  console.error("   OPENAI_API_KEY=your_key_here");
-} else {
-  const keyPreview = process.env.OPENAI_API_KEY.substring(0, 7) + "...";
-  console.log(`✅ OPENAI_API_KEY loaded: ${keyPreview}`);
-}
+// Verify Groq API keys are loaded
+const groqKeysRaw =
+  process.env.GROQ_API_KEYS?.trim() ||
+  process.env.GROQ_API_KEY?.trim() ||
+  "";
+const groqKeys = groqKeysRaw
+  .split(",")
+  .map((k) => k.trim())
+  .filter((k) => k.length > 0);
 
-if (!process.env.GROQ_API_KEY) {
-  console.warn(
-    "⚠️  GROQ_API_KEY not found — /api/groq/* routes will return 400",
-  );
+if (groqKeys.length === 0) {
+  console.error("❌ Neither GROQ_API_KEYS nor GROQ_API_KEY found in environment variables!");
+  console.error("   Please create .env file in project root with:");
+  console.error("   GROQ_API_KEYS=your_key_here");
 } else {
-  const keyPreview = process.env.GROQ_API_KEY.substring(0, 7) + "...";
-  console.log(`✅ GROQ_API_KEY loaded: ${keyPreview}`);
+  const keyPreview = groqKeys[0].substring(0, 7) + "...";
+  const label = groqKeys.length > 1 ? `${groqKeys.length} keys` : "1 key";
+  console.log(`✅ Groq API keys loaded: ${label} (first: ${keyPreview})`);
 }
 
 // Start server

@@ -10,7 +10,8 @@ export function parseGroqApiKeys(
   keysEnv?: string,
   fallbackKeyEnv?: string,
 ): string[] {
-  const raw = keysEnv ?? fallbackKeyEnv ?? "";
+  // Prefer keysEnv only when it's non-empty; otherwise fall back to fallbackKeyEnv
+  const raw = keysEnv?.trim().length ? keysEnv : (fallbackKeyEnv ?? "");
   const keys = raw
     .split(",")
     .map((k) => k.trim())
@@ -125,12 +126,16 @@ export class GroqService {
     transcript: string,
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
+    jobDescription?: string,
   ): Promise<string> {
     return this.withKeyRotation(async (client) => {
       const response = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",
         messages: [
-          { role: "system", content: this.getSystemPrompt(mode) },
+          {
+            role: "system",
+            content: this.getSystemPrompt(mode, jobDescription),
+          },
           {
             role: "user",
             content: this.buildPrompt(transcript, mode, context),
@@ -151,21 +156,28 @@ export class GroqService {
     transcript: string,
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
+    jobDescription?: string,
   ): AsyncGenerator<string, void, unknown> {
-    // Пробуем каждый доступный ключ до получения стрима
-    const client = await this.pickClientWithRetry(async (c) => {
-      // Просто проверяем, что можем начать запрос — исключение выбросится сразу
-      return c;
-    });
+    // Wrap stream initialization in key-rotation retry so that 429/5xx errors
+    // at stream creation are retried across available keys.
+    const messages = [
+      {
+        role: "system" as const,
+        content: this.getSystemPrompt(mode, jobDescription),
+      },
+      {
+        role: "user" as const,
+        content: this.buildPrompt(transcript, mode, context),
+      },
+    ];
 
-    const stream = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      messages: [
-        { role: "system", content: this.getSystemPrompt(mode) },
-        { role: "user", content: this.buildPrompt(transcript, mode, context) },
-      ],
-      stream: true,
-    });
+    const stream = await this.withKeyRotation(async (client) => {
+      return client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages,
+        stream: true,
+      });
+    }, "GENERATION_ERROR");
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
@@ -239,22 +251,6 @@ export class GroqService {
   }
 
   /**
-   * Вспомогательный метод для generateResponseStream:
-   * возвращает первый доступный клиент без выполнения реального запроса.
-   */
-  private async pickClientWithRetry(_: (c: Groq) => Promise<Groq>): Promise<Groq> {
-    const keyIndex = this.getNextAvailableKeyIndex();
-    if (keyIndex !== -1) {
-      this.currentKeyIndex = keyIndex;
-      return this.clients[keyIndex];
-    }
-    const waitMs = this.msUntilNextKeyAvailable();
-    await this.sleep(waitMs);
-    const fallbackIndex = this.getNextAvailableKeyIndex();
-    return this.clients[fallbackIndex !== -1 ? fallbackIndex : 0];
-  }
-
-  /**
    * Возвращает индекс следующего незаблокированного ключа (round-robin).
    * Возвращает -1, если все ключи заблокированы.
    */
@@ -300,7 +296,11 @@ export class GroqService {
 
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
 
-  private getSystemPrompt(mode: string): string {
+  private getSystemPrompt(mode: string, jobDescription?: string): string {
+    const jobSection = jobDescription
+      ? `\n\nВАКАНСИЯ/КОНТЕКСТ СОБЕСЕДОВАНИЯ:\n${jobDescription}\n\nОтвечай с учётом требований этой вакансии — акцентируй опыт и технологии, которые в ней упомянуты.`
+      : "";
+
     switch (mode) {
       case "interview":
         return `Ты — скрытый ассистент на IT-интервью. Генерируй ГОТОВЫЕ ОТВЕТЫ от первого лица, которые кандидат может зачитать.
@@ -311,7 +311,7 @@ export class GroqService {
 - Структура: краткое определение → личный опыт → конкретный пример
 - Звучать как живая речь, не как учебник
 - Отвечать ТОЛЬКО по-русски
-- Пиши без приветствий и вводных слов`;
+- Пиши без приветствий и вводных слов${jobSection}`;
 
       case "algorithm":
         return `Ты — эксперт по алгоритмам и структурам данных.
@@ -319,16 +319,16 @@ export class GroqService {
 - Укажи O(n) сложность
 - Назови ключевую структуру/алгоритм
 - Краткий псевдокод если нужно (≤5 строк)
-- Отвечать ТОЛЬКО по-русски`;
+- Отвечать ТОЛЬКО по-русски${jobSection}`;
 
       case "cheatsheet":
         return `Ты — быстрая шпаргалка для разработчика.
 - Максимально кратко (1 предложение или список)
 - Только факты, без объяснений
-- Отвечать ТОЛЬКО по-русски`;
+- Отвечать ТОЛЬКО по-русски${jobSection}`;
 
       default:
-        return `Ты — скрытый ассистент на IT-интервью. Пиши строго по делу, без приветствий и вводных слов. Язык: Русский. Код пиши на английском. Будь максимально лаконичен, время критично.`;
+        return `Ты — скрытый ассистент на IT-интервью. Пиши строго по делу, без приветствий и вводных слов. Язык: Русский. Код пиши на английском. Будь максимально лаконичен, время критично.${jobSection}`;
     }
   }
 

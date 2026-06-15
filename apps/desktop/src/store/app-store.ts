@@ -28,12 +28,14 @@ export interface AppStore extends AppState {
   setAudioDeviceConnected: (connected: boolean) => void;
   clearTranscriptAndResponse: () => void;
   reset: () => void;
-  
+
   // Interview mode actions
   setMode: (mode: AssistantMode) => void;
   addToInterviewContext: (question: string, answer: string) => void;
   clearInterviewContext: () => void;
   getInterviewContext: () => Array<{ question: string; answer: string }>;
+  setJobDescription: (jobDescription: string) => void;
+  getJobDescription: () => string | undefined;
 }
 
 const initialState: AppState = {
@@ -45,7 +47,7 @@ const initialState: AppState = {
   apiKeyConfigured: false,
   audioDeviceConnected: false,
   error: null,
-  mode: 'general',
+  mode: "general",
   interviewContext: null,
 };
 
@@ -82,9 +84,9 @@ export const useAppStore = create<AppStore>((set) => ({
   addMessage: (type: "user" | "assistant" | "system", content: string) =>
     set((state) => {
       const lastMessage = state.messages[state.messages.length - 1];
-      
+
       // If last message is same type, update it (for streaming)
-      if (lastMessage && lastMessage.type === type && type === 'assistant') {
+      if (lastMessage && lastMessage.type === type && type === "assistant") {
         const updatedMessages = [...state.messages];
         updatedMessages[updatedMessages.length - 1] = {
           ...lastMessage,
@@ -95,7 +97,7 @@ export const useAppStore = create<AppStore>((set) => ({
           messages: updatedMessages,
         };
       }
-      
+
       // Otherwise add new message
       const message: ChatMessage = {
         id: `${type}-${Date.now()}`,
@@ -131,7 +133,8 @@ export const useAppStore = create<AppStore>((set) => ({
   setError: (error: ErrorResponse | null) =>
     set((state) => {
       const stopCapture = error
-        ? error.code === 'DEVICE_NOT_FOUND' || error.code === 'CAPTURE_START_ERROR'
+        ? error.code === "DEVICE_NOT_FOUND" ||
+          error.code === "CAPTURE_START_ERROR"
         : false;
       return {
         error,
@@ -174,14 +177,14 @@ export const useAppStore = create<AppStore>((set) => ({
   setMode: (mode: AssistantMode) =>
     set((state) => {
       // Clear interview context when switching away from interview mode
-      if (mode !== 'interview' && state.interviewContext) {
+      if (mode !== "interview" && state.interviewContext) {
         return {
           mode,
           interviewContext: null,
         };
       }
       // Initialize interview context when switching to interview mode
-      if (mode === 'interview' && !state.interviewContext) {
+      if (mode === "interview" && !state.interviewContext) {
         return {
           mode,
           interviewContext: {
@@ -196,7 +199,7 @@ export const useAppStore = create<AppStore>((set) => ({
   // Add question-answer pair to interview context
   addToInterviewContext: (question: string, answer: string) =>
     set((state) => {
-      if (state.mode !== 'interview') return state;
+      if (state.mode !== "interview") return state;
 
       const context = state.interviewContext || {
         questions: [],
@@ -223,22 +226,43 @@ export const useAppStore = create<AppStore>((set) => ({
   // Clear interview context
   clearInterviewContext: () =>
     set((state) => ({
-      interviewContext: state.mode === 'interview'
-        ? {
-            questions: [],
-            startTime: Date.now(),
-          }
-        : null,
+      interviewContext:
+        state.mode === "interview"
+          ? {
+              questions: [],
+              startTime: Date.now(),
+            }
+          : null,
     })),
 
   // Get interview context for API calls
   getInterviewContext: (): Array<{ question: string; answer: string }> => {
     const state = useAppStore.getState() as AppStore;
     if (!state.interviewContext) return [];
-    
-    return state.interviewContext.questions.map((q: { question: string; answer: string; timestamp: number }) => ({
-      question: q.question,
-      answer: q.answer,
-    }));
+
+    return state.interviewContext.questions.map(
+      (q: { question: string; answer: string; timestamp: number }) => ({
+        question: q.question,
+        answer: q.answer,
+      }),
+    );
+  },
+
+  // Set job description for interview mode
+  setJobDescription: (jobDescription: string) =>
+    set((state) => {
+      if (!state.interviewContext) return state;
+      return {
+        interviewContext: {
+          ...state.interviewContext,
+          jobDescription: jobDescription.trim() || undefined,
+        },
+      };
+    }),
+
+  // Get job description
+  getJobDescription: (): string | undefined => {
+    const state = useAppStore.getState() as AppStore;
+    return state.interviewContext?.jobDescription;
   },
 }));

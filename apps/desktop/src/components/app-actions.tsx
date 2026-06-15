@@ -2,17 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "../store";
 
 interface AppActionsProps {
-  realtimeEnabled: boolean;
-  realtimeStatus: string;
-  onToggleRealtime: () => void;
   onOpenSettings: () => void;
+  sampleRate?: number;
 }
 
 export function AppActions({
-  realtimeEnabled,
-  realtimeStatus,
-  onToggleRealtime,
   onOpenSettings,
+  sampleRate = 48000,
 }: AppActionsProps) {
   const { isCapturing, messages, clearMessages, addMessage } = useAppStore();
 
@@ -35,7 +31,7 @@ export function AppActions({
       if (buffer && buffer.length > 0) {
         const path = await invoke<string>("save_audio_debug", {
           buffer: Array.from(buffer),
-          sampleRate: 48000,
+          sampleRate,
         });
         addMessage("system", `Аудио сохранено в:\n${path}`);
       } else {
@@ -53,23 +49,11 @@ export function AppActions({
         className={`btn ${analysisEnabled ? "btn-success" : "btn-warning"}`}
         title={
           analysisEnabled
-            ? "Анализ включен. Нажмите, чтобы отключить отправку в ChatGPT"
-            : "Анализ отключен. Нажмите, чтобы включить отправку в ChatGPT"
+            ? "Анализ включен. Нажмите, чтобы отключить отправку в Groq"
+            : "Анализ отключен. Нажмите, чтобы включить отправку в Groq"
         }
       >
         {analysisEnabled ? "🤖 Анализ ВКЛ" : "⏸️ Анализ ВЫКЛ"}
-      </button>
-
-      <button
-        onClick={onToggleRealtime}
-        className={`btn ${realtimeEnabled ? "btn-success" : "btn-secondary"}`}
-        title={
-          realtimeEnabled
-            ? `Realtime API активен (${realtimeStatus}). Нажмите, чтобы вернуться в Batch-режим`
-            : "Включить Realtime API — низкая задержка, встроенный VAD"
-        }
-      >
-        {realtimeEnabled ? `⚡ Realtime (${realtimeStatus})` : "💤 Batch mode"}
       </button>
 
       <button

@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Window } from "@tauri-apps/api/window";
 
-export const WindowControls: React.FC = () => {
+interface WindowControlsProps {
+  stealthEnabled?: boolean;
+  onToggleStealth?: () => void;
+}
+
+export const WindowControls: React.FC<WindowControlsProps> = ({
+  stealthEnabled,
+  onToggleStealth,
+}) => {
   const [appWindow] = useState(() => Window.getCurrent());
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -119,6 +127,35 @@ export const WindowControls: React.FC = () => {
           zIndex: 2,
         }}
       >
+        {onToggleStealth && (
+          <button
+            onClick={onToggleStealth}
+            style={{
+              ...buttonStyle,
+              width: "32px",
+              backgroundColor: stealthEnabled
+                ? "rgba(76, 175, 80, 0.35)"
+                : "rgba(255, 152, 0, 0.35)",
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = stealthEnabled
+                ? "rgba(76, 175, 80, 0.55)"
+                : "rgba(255, 152, 0, 0.55)")
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor = stealthEnabled
+                ? "rgba(76, 175, 80, 0.35)"
+                : "rgba(255, 152, 0, 0.35)")
+            }
+            title={
+              stealthEnabled
+                ? "Скрыто от демонстрации экрана (Ctrl+Shift+S)"
+                : "Видно при демонстрации экрана! (Ctrl+Shift+S)"
+            }
+          >
+            {stealthEnabled ? "🛡️" : "👁️"}
+          </button>
+        )}
         <button
           onClick={handleMinimize}
           style={buttonStyle}
