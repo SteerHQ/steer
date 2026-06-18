@@ -107,6 +107,9 @@ openai.post("/generate", async (c) => {
   ) {
     throw new ValidationError("Field 'jobDescription' must be a string");
   }
+  if (body.resume !== undefined && typeof body.resume !== "string") {
+    throw new ValidationError("Field 'resume' must be a string");
+  }
 
   const validModes = [
     "general",
@@ -126,6 +129,7 @@ openai.post("/generate", async (c) => {
       mode,
       body.context,
       body.jobDescription,
+      body.resume,
     );
     return c.json({ success: true, response, mode, streaming: false });
   }
@@ -138,6 +142,7 @@ openai.post("/generate", async (c) => {
           mode,
           body.context,
           body.jobDescription,
+          body.resume,
         )) {
           const data = `data: ${JSON.stringify({ chunk })}\n\n`;
           controller.enqueue(new TextEncoder().encode(data));

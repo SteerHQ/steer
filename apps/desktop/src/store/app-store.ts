@@ -1,5 +1,10 @@
 import { create } from "zustand";
-import { AppState, AssistantMode, InterviewContext } from "@steer/types";
+import {
+  AppState,
+  AssistantMode,
+  InterviewContext,
+  ResumeProfile,
+} from "@steer/types";
 import { ErrorResponse } from "@steer/types";
 
 export interface ChatMessage {
@@ -7,6 +12,58 @@ export interface ChatMessage {
   type: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
+}
+
+// ─── Персист резюме в localStorage ────────────────────────────────────────────
+
+const RESUMES_KEY = "resume_profiles";
+const ACTIVE_RESUME_KEY = "active_resume_id";
+
+function loadResumes(): ResumeProfile[] {
+  try {
+    const raw = localStorage.getItem(RESUMES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (r): r is ResumeProfile =>
+        r &&
+        typeof r.id === "string" &&
+        typeof r.name === "string" &&
+        typeof r.content === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function loadActiveResumeId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_RESUME_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function persistResumes(resumes: ResumeProfile[]): void {
+  try {
+    localStorage.setItem(RESUMES_KEY, JSON.stringify(resumes));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function persistActiveResumeId(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(ACTIVE_RESUME_KEY, id);
+    else localStorage.removeItem(ACTIVE_RESUME_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function generateId(): string {
+  return `resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export interface AppStore extends AppState {
@@ -36,6 +93,17 @@ export interface AppStore extends AppState {
   getInterviewContext: () => Array<{ question: string; answer: string }>;
   setJobDescription: (jobDescription: string) => void;
   getJobDescription: () => string | undefined;
+
+  // Resume (CV) management
+  addResume: (name: string, content: string) => string;
+  updateResume: (
+    id: string,
+    patch: { name?: string; content?: string },
+  ) => void;
+  deleteResume: (id: string) => void;
+  setActiveResume: (id: string | null) => void;
+  getActiveResume: () => ResumeProfile | undefined;
+  getActiveResumeContent: () => string | undefined;
 }
 
 const initialState: AppState = {
@@ -49,6 +117,8 @@ const initialState: AppState = {
   error: null,
   mode: "general",
   interviewContext: null,
+  resumes: loadResumes(),
+  activeResumeId: loadActiveResumeId(),
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -170,8 +240,13 @@ export const useAppStore = create<AppStore>((set) => ({
       currentResponse: null,
     })),
 
-  // Reset to initial state
-  reset: () => set(initialState),
+  // Reset to initial state (preserves saved resumes)
+  reset: () =>
+    set((state) => ({
+      ...initialState,
+      resumes: state.resumes,
+      activeResumeId: state.activeResumeId,
+    })),
 
   // Set assistant mode
   setMode: (mode: AssistantMode) =>
@@ -265,5 +340,84 @@ export const useAppStore = create<AppStore>((set) => ({
   getJobDescription: (): string | undefined => {
     const state = useAppStore.getState() as AppStore;
     return state.interviewContext?.jobDescription;
+  },
+
+  // ─── Управление резюме ──────────────────────────────────────────────────────
+
+  // Создать новое резюме, сделать его активным и вернуть его id
+  addResume: (name: string, content: string): string => {
+    const id = generateId();
+    set((state) => {
+      const resume: ResumeProfile = {
+        id,
+        name: name.trim() || "Без названия",
+        content,
+        updatedAt: Date.now(),
+      };
+      const resumes = [...state.resumes, resume];
+      persistResumes(resumes);
+      persistActiveResumeId(id);
+      return { resumes, activeResumeId: id };
+    });
+    return id;
+  },
+
+  // Обновить название и/или содержимое резюме
+  updateResume: (id: string, patch: { name?: string; content?: string }) =>
+    set((state) => {
+      const resumes = state.resumes.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              ...(patch.name !== undefined
+                ? { name: patch.name.trim() || "Без названия" }
+                : {}),
+              ...(patch.content !== undefined
+                ? { content: patch.content }
+                : {}),
+              updatedAt: Date.now(),
+            }
+          : r,
+      );
+      persistResumes(resumes);
+      return { resumes };
+    }),
+
+  // Удалить резюме; если оно было активным — сбросить активное
+  deleteResume: (id: string) =>
+    set((state) => {
+      const resumes = state.resumes.filter((r) => r.id !== id);
+      const activeResumeId =
+        state.activeResumeId === id ? null : state.activeResumeId;
+      persistResumes(resumes);
+      if (activeResumeId !== state.activeResumeId) {
+        persistActiveResumeId(activeResumeId);
+      }
+      return { resumes, activeResumeId };
+    }),
+
+  // Выбрать активное резюме (или сбросить выбор)
+  setActiveResume: (id: string | null) =>
+    set((state) => {
+      const exists = id === null || state.resumes.some((r) => r.id === id);
+      const activeResumeId = exists ? id : null;
+      persistActiveResumeId(activeResumeId);
+      return { activeResumeId };
+    }),
+
+  // Получить активный профиль резюме
+  getActiveResume: (): ResumeProfile | undefined => {
+    const state = useAppStore.getState() as AppStore;
+    if (!state.activeResumeId) return undefined;
+    return state.resumes.find((r) => r.id === state.activeResumeId);
+  },
+
+  // Получить текст активного резюме для подстановки в промпт
+  getActiveResumeContent: (): string | undefined => {
+    const state = useAppStore.getState() as AppStore;
+    if (!state.activeResumeId) return undefined;
+    const resume = state.resumes.find((r) => r.id === state.activeResumeId);
+    const content = resume?.content?.trim();
+    return content ? content : undefined;
   },
 }));

@@ -25,6 +25,7 @@ export function useAudioPipeline({
     addToInterviewContext,
     getInterviewContext,
     getJobDescription,
+    getActiveResumeContent,
   } = useAppStore();
 
   const [currentAudioLevel, setCurrentAudioLevel] = useState(0);
@@ -210,6 +211,11 @@ export function useAudioPipeline({
     const context = mode === "interview" ? getInterviewContext() : undefined;
     const jobDescription =
       mode === "interview" ? getJobDescription() : undefined;
+    // Резюме полезно как на собеседовании, так и в общем режиме
+    const resume =
+      mode === "interview" || mode === "general"
+        ? getActiveResumeContent()
+        : undefined;
     const streamingEnabled =
       localStorage.getItem("streaming_enabled") !== "false";
 
@@ -219,7 +225,7 @@ export function useAudioPipeline({
     console.time("⚡ Total response time");
 
     const response = await interviewServiceRef.current!.generateResponseStream(
-      { transcript, mode, context, jobDescription },
+      { transcript, mode, context, jobDescription, resume },
       (partialResponse) => {
         setResponse(partialResponse);
         addMessage("assistant", partialResponse);
@@ -296,6 +302,7 @@ export function useAudioPipeline({
     addToInterviewContext,
     getInterviewContext,
     getJobDescription,
+    getActiveResumeContent,
   ]);
 
   return {

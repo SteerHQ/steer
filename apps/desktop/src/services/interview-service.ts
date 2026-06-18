@@ -9,6 +9,7 @@ export interface GenerateOptions {
   mode: AssistantMode;
   context?: Array<{ question: string; answer: string }>;
   jobDescription?: string;
+  resume?: string;
 }
 
 export class InterviewService {
@@ -26,11 +27,12 @@ export class InterviewService {
     onChunk: (chunk: string) => void,
     useStreaming: boolean = false,
   ): Promise<string> {
-    const { transcript, mode, context, jobDescription } = options;
+    const { transcript, mode, context, jobDescription, resume } = options;
 
     logger.info("Generating response", {
       mode,
       hasContext: !!context,
+      hasResume: !!resume,
       streaming: useStreaming,
     });
 
@@ -40,6 +42,7 @@ export class InterviewService {
         mode,
         context,
         jobDescription,
+        resume,
       };
 
       // Add stream query parameter

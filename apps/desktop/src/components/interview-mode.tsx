@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { AssistantMode } from "@steer/types";
 import { useAppStore } from "../store/app-store";
+import { ResumeManager } from "./resume-manager";
 import "./interview-mode.css";
 
 interface InterviewModeProps {
@@ -142,6 +143,10 @@ export function InterviewMode({
             </div>
           )}
         </div>
+      )}
+
+      {(currentMode === "interview" || currentMode === "general") && (
+        <ResumeManager />
       )}
     </div>
   );
