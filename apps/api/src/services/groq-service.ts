@@ -44,7 +44,7 @@ export class GroqService {
   /** Время (ms), до которого ключ считается заблокированным (rate-limit) */
   private readonly keyBlockedUntil: number[];
 
-  constructor(apiKeys: string | string[]) {
+  constructor(apiKeys: string | string[], proxy?: string) {
     const keys = Array.isArray(apiKeys) ? apiKeys : [apiKeys];
 
     if (keys.length === 0) {
@@ -57,7 +57,23 @@ export class GroqService {
       }
     });
 
-    this.clients = keys.map((key) => new Groq({ apiKey: key }));
+    // Кастомный fetch с поддержкой прокси (Bun поддерживает опцию proxy нативно)
+    const customFetch = proxy
+      ? (url: string | URL | Request, init?: RequestInit) =>
+          fetch(url, { ...init, proxy } as RequestInit & { proxy: string })
+      : undefined;
+
+    if (proxy) {
+      console.log(`[GroqService] Using proxy: ${proxy}`);
+    }
+
+    this.clients = keys.map(
+      (key) =>
+        new Groq({
+          apiKey: key,
+          ...(customFetch ? { fetch: customFetch } : {}),
+        }),
+    );
     this.keyBlockedUntil = new Array(keys.length).fill(0);
 
     if (keys.length > 1) {

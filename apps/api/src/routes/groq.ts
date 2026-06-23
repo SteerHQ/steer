@@ -7,6 +7,11 @@ function getGroqKeys(): string[] {
   return parseGroqApiKeys(process.env.GROQ_API_KEYS, process.env.GROQ_API_KEY);
 }
 
+/** Читает прокси из GROQ_PROXY (опционально) */
+function getGroqProxy(): string | undefined {
+  return process.env.GROQ_PROXY || undefined;
+}
+
 const groq = new Hono();
 
 // POST /api/groq/transcribe
@@ -49,7 +54,7 @@ groq.post("/transcribe", async (c) => {
   const previousContext = c.req.query("context") ?? undefined;
   const audioBlob = new Blob([audioArray], { type: "audio/wav" });
 
-  const groqService = new GroqService(apiKeys);
+  const groqService = new GroqService(apiKeys, getGroqProxy());
   const result = await groqService.transcribeAudio(audioBlob, previousContext);
 
   console.log("[Groq transcription]:", result.text);
@@ -89,7 +94,7 @@ groq.post("/generate", async (c) => {
   const mode: Mode = validModes.includes(body.mode) ? body.mode : "general";
 
   const useStreaming = c.req.query("stream") !== "false";
-  const groqService = new GroqService(apiKeys);
+  const groqService = new GroqService(apiKeys, getGroqProxy());
 
   // Без стриминга
   if (!useStreaming) {
@@ -151,7 +156,7 @@ groq.post("/detect-question", async (c) => {
     throw new ValidationError("Missing required field: transcript");
   }
 
-  const groqService = new GroqService(apiKeys);
+  const groqService = new GroqService(apiKeys, getGroqProxy());
   const isQuestion = await groqService.detectQuestion(body.transcript);
 
   return c.json({ success: true, isQuestion });
