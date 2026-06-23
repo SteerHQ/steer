@@ -10,13 +10,18 @@ export function parseGroqApiKeys(
   keysEnv?: string,
   fallbackKeyEnv?: string,
 ): string[] {
-  // Prefer keysEnv only when it's non-empty; otherwise fall back to fallbackKeyEnv
-  const raw = keysEnv?.trim().length ? keysEnv : (fallbackKeyEnv ?? "");
-  const keys = raw
-    .split(",")
-    .map((k) => k.trim())
-    .filter((k) => k.length > 0);
-  return keys;
+  // First try to parse keysEnv; fall back to fallbackKeyEnv only if the
+  // parsed result is empty (handles cases where keysEnv is all whitespace/commas)
+  const parseRaw = (raw: string) =>
+    raw
+      .split(",")
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+  const keys = parseRaw(keysEnv ?? "");
+  if (keys.length > 0) return keys;
+
+  return parseRaw(fallbackKeyEnv ?? "");
 }
 
 export class GroqService {
@@ -127,6 +132,7 @@ export class GroqService {
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
     jobDescription?: string,
+    resume?: string,
   ): Promise<string> {
     return this.withKeyRotation(async (client) => {
       const response = await client.chat.completions.create({
@@ -134,7 +140,7 @@ export class GroqService {
         messages: [
           {
             role: "system",
-            content: this.getSystemPrompt(mode, jobDescription),
+            content: this.getSystemPrompt(mode, jobDescription, resume),
           },
           {
             role: "user",
@@ -157,13 +163,14 @@ export class GroqService {
     mode: "general" | "interview" | "algorithm" | "cheatsheet" = "general",
     context?: Array<{ question: string; answer: string }>,
     jobDescription?: string,
+    resume?: string,
   ): AsyncGenerator<string, void, unknown> {
     // Wrap stream initialization in key-rotation retry so that 429/5xx errors
     // at stream creation are retried across available keys.
     const messages = [
       {
         role: "system" as const,
-        content: this.getSystemPrompt(mode, jobDescription),
+        content: this.getSystemPrompt(mode, jobDescription, resume),
       },
       {
         role: "user" as const,
@@ -296,9 +303,18 @@ export class GroqService {
 
   // ─── Вспомогательные методы ─────────────────────────────────────────────────
 
-  private getSystemPrompt(mode: string, jobDescription?: string): string {
+  private getSystemPrompt(
+    mode: string,
+    jobDescription?: string,
+    resume?: string,
+  ): string {
     const jobSection = jobDescription
       ? `\n\nВАКАНСИЯ/КОНТЕКСТ СОБЕСЕДОВАНИЯ:\n${jobDescription}\n\nОтвечай с учётом требований этой вакансии — акцентируй опыт и технологии, которые в ней упомянуты.`
+      : "";
+
+    const resumeText = resume?.trim();
+    const resumeSection = resumeText
+      ? `\n\nРЕЗЮМЕ КАНДИДАТА:\n${resumeText}\n\nОтвечай строго от лица этого кандидата, опирайся на опыт, проекты, технологии и факты из резюме. Не выдумывай опыт, которого нет в резюме. Если в резюме нет прямого ответа — отвечай обобщённо, но в рамках указанного стека и уровня.`
       : "";
 
     switch (mode) {
@@ -311,7 +327,7 @@ export class GroqService {
 - Структура: краткое определение → личный опыт → конкретный пример
 - Звучать как живая речь, не как учебник
 - Отвечать ТОЛЬКО по-русски
-- Пиши без приветствий и вводных слов${jobSection}`;
+- Пиши без приветствий и вводных слов${resumeSection}${jobSection}`;
 
       case "algorithm":
         return `Ты — эксперт по алгоритмам и структурам данных.
@@ -328,7 +344,7 @@ export class GroqService {
 - Отвечать ТОЛЬКО по-русски${jobSection}`;
 
       default:
-        return `Ты — скрытый ассистент на IT-интервью. Пиши строго по делу, без приветствий и вводных слов. Язык: Русский. Код пиши на английском. Будь максимально лаконичен, время критично.${jobSection}`;
+        return `Ты — скрытый ассистент на IT-интервью. Пиши строго по делу, без приветствий и вводных слов. Язык: Русский. Код пиши на английском. Будь максимально лаконичен, время критично.${resumeSection}${jobSection}`;
     }
   }
 

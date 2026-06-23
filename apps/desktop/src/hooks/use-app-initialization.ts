@@ -14,8 +14,12 @@ export function useAppInitialization({
   setConfig,
   setShowSettings,
 }: UseAppInitializationOptions) {
-  const { setApiKeyConfigured, setAudioDeviceConnected, setError, startCapture } =
-    useAppStore();
+  const {
+    setApiKeyConfigured,
+    setAudioDeviceConnected,
+    setError,
+    startCapture,
+  } = useAppStore();
 
   const deviceSampleRateRef = useRef<number>(48000);
 
@@ -60,7 +64,10 @@ export function useAppInitialization({
         deviceSampleRateRef.current = 48000;
       }
 
-      console.log("Audio capture started successfully with device:", deviceName);
+      console.log(
+        "Audio capture started successfully with device:",
+        deviceName,
+      );
     } catch (error) {
       console.error("Failed to start audio capture:", error);
       setAudioDeviceConnected(false);
@@ -96,7 +103,10 @@ export function useAppInitialization({
     }
   };
 
-  const handleSettingsSave = async (newConfig: AppConfig, isCapturing: boolean) => {
+  const handleSettingsSave = async (
+    newConfig: AppConfig,
+    isCapturing: boolean,
+  ) => {
     try {
       const oldDeviceName = config?.audioDevice;
       const newDeviceName = newConfig.audioDevice;
@@ -108,9 +118,12 @@ export function useAppInitialization({
 
       if (isCapturing && oldDeviceName !== newDeviceName) {
         console.log("Audio device changed, restarting capture...");
+        let restartFailed = false;
         try {
           await invoke<string>("stop_audio_capture");
-          await invoke<string>("start_audio_capture", { deviceName: newDeviceName });
+          await invoke<string>("start_audio_capture", {
+            deviceName: newDeviceName,
+          });
 
           // Refresh sample rate for the new device
           try {
@@ -123,6 +136,7 @@ export function useAppInitialization({
 
           console.log("Capture restarted with new device:", newDeviceName);
         } catch (error) {
+          restartFailed = true;
           console.error("Failed to restart capture with new device:", error);
           // Update UI to reflect that capture is no longer running
           const { stopCapture } = useAppStore.getState();
@@ -137,9 +151,16 @@ export function useAppInitialization({
             retryable: true,
           });
         }
-      }
 
-      await checkAudioDevice();
+        // Only check device availability when capture restart did not fail —
+        // otherwise checkAudioDevice() might flip the state back to "connected"
+        // and hide the restart failure error.
+        if (!restartFailed) {
+          await checkAudioDevice();
+        }
+      } else {
+        await checkAudioDevice();
+      }
     } catch (error) {
       console.error("Failed to save settings:", error);
       setError({

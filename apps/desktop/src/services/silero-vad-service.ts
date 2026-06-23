@@ -2,12 +2,11 @@ import { NonRealTimeVAD } from "@ricky0123/vad-web";
 import * as ort from "onnxruntime-web";
 
 // Указываем ORT, где искать WASM и .mjs файлы.
-// vite-plugin-static-copy кладёт их в корень сервера/dist.
-// В dev режиме Vite отдаёт статику из корня проекта через localhost:1420.
+// ortWasmPlugin() (в конфигурации Vite) обеспечивает размещение этих файлов:
+// - в корне dist/ для production сборки
+// - в корне проекта (отдаётся через localhost:1420) для dev-режима
 const wasmRoot =
-  typeof window !== "undefined"
-    ? `${window.location.origin}/`
-    : "./";
+  typeof window !== "undefined" ? `${window.location.origin}/` : "./";
 
 ort.env.wasm.wasmPaths = wasmRoot;
 

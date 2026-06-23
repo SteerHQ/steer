@@ -17,7 +17,9 @@ groq.post("/transcribe", async (c) => {
   const apiKeys = getGroqKeys();
 
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const arrayBuffer = await c.req.arrayBuffer();
@@ -62,7 +64,9 @@ groq.post("/generate", async (c) => {
   const apiKeys = getGroqKeys();
 
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const body = await c.req.json();
@@ -93,6 +97,8 @@ groq.post("/generate", async (c) => {
       body.transcript,
       mode,
       body.context,
+      body.jobDescription,
+      body.resume,
     );
     return c.json({ success: true, response, mode, streaming: false });
   }
@@ -105,6 +111,8 @@ groq.post("/generate", async (c) => {
           body.transcript,
           mode,
           body.context,
+          body.jobDescription,
+          body.resume,
         )) {
           const data = `data: ${JSON.stringify({ chunk })}\n\n`;
           controller.enqueue(new TextEncoder().encode(data));
@@ -132,7 +140,9 @@ groq.post("/detect-question", async (c) => {
   const apiKeys = getGroqKeys();
 
   if (apiKeys.length === 0) {
-    throw new ValidationError("GROQ_API_KEYS (or GROQ_API_KEY) not configured on server");
+    throw new ValidationError(
+      "GROQ_API_KEYS (or GROQ_API_KEY) not configured on server",
+    );
   }
 
   const body = await c.req.json();

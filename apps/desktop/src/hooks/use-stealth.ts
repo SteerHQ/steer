@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger("Stealth");
@@ -94,7 +94,8 @@ export function useStealth() {
     void setup();
 
     return () => {
-      void unregisterAll().catch(() => {});
+      void unregister(HOTKEYS.toggleStealth).catch(() => {});
+      void unregister(HOTKEYS.toggleVisibility).catch(() => {});
     };
   }, [toggleStealth, toggleVisibility]);
 

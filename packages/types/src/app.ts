@@ -17,6 +17,25 @@ export interface AppState {
   error: ErrorResponse | null;
   mode: AssistantMode;
   interviewContext: InterviewContext | null;
+  /** Сохранённые резюме пользователя (несколько профилей) */
+  resumes: ResumeProfile[];
+  /** ID активного резюме, которое подставляется в промпт */
+  activeResumeId: string | null;
+}
+
+/**
+ * Профиль резюме пользователя. Пользователь может хранить несколько
+ * резюме (например под разные роли) и выбирать активное для собеседования.
+ */
+export interface ResumeProfile {
+  /** Уникальный идентификатор */
+  id: string;
+  /** Название профиля, напр. "Senior Backend (Node.js)" */
+  name: string;
+  /** Текст резюме, который подставляется в системный промпт */
+  content: string;
+  /** Время последнего изменения (ms) */
+  updatedAt: number;
 }
 
 export interface InterviewContext {

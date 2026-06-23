@@ -14,12 +14,12 @@
   },
   "dependencies": {
     "@steer/types": "workspace:*",
-    "groq-sdk": "^1.2.1",
-    "hono": "^4.12.25"
+    "groq-sdk": "^1.3.0",
+    "hono": "^4.12.27"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
-    "@types/node": "^25.9.3",
+    "@types/node": "^26.0.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.9"
   }

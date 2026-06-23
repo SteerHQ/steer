@@ -33,6 +33,7 @@ export interface GenerateRequest {
     answer: string;
   }>;
   jobDescription?: string; // Описание вакансии для персонализации промпта
+  resume?: string; // Текст активного резюме кандидата для персонализации ответов
 }
 
 // --- Realtime API типы ---
