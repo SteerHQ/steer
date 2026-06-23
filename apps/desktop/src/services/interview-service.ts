@@ -58,7 +58,11 @@ export class InterviewService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate response");
+        const msg =
+          typeof errorData.error === "string"
+            ? errorData.error
+            : (errorData.error?.message ?? JSON.stringify(errorData));
+        throw new Error(`${response.status} ${msg}`);
       }
 
       // Non-streaming mode
@@ -186,7 +190,11 @@ export class InterviewService {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to transcribe audio");
+        const msg =
+          typeof errorData.error === "string"
+            ? errorData.error
+            : (errorData.error?.message ?? JSON.stringify(errorData));
+        throw new Error(`${response.status} ${msg}`);
       }
 
       const data = await response.json();

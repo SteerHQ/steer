@@ -2,6 +2,21 @@ import Groq from "groq-sdk";
 import type { TranscriptionResponse } from "@steer/types";
 import { OpenAIError } from "../middleware/error-handler";
 
+const MODELS = {
+  transcription: {
+    primary: "whisper-large-v3",
+    fallback: "whisper-large-v3-turbo",
+  },
+  detection: {
+    primary: "llama-3.1-8b-instant",
+    fallback: "llama3-8b-8192",
+  },
+  generation: {
+    primary: "llama-3.3-70b-versatile",
+    fallback: "compound-beta",
+  },
+} as const;
+
 /**
  * Парсит строку ключей (через запятую) в массив.
  * Поддерживает как GROQ_API_KEYS (несколько), так и GROQ_API_KEY (один).
@@ -10,8 +25,6 @@ export function parseGroqApiKeys(
   keysEnv?: string,
   fallbackKeyEnv?: string,
 ): string[] {
-  // First try to parse keysEnv; fall back to fallbackKeyEnv only if the
-  // parsed result is empty (handles cases where keysEnv is all whitespace/commas)
   const parseRaw = (raw: string) =>
     raw
       .split(",")
@@ -64,13 +77,18 @@ export class GroqService {
     return this.withKeyRotation(async (client) => {
       const file = new File([audioBlob], "audio.wav", { type: "audio/wav" });
 
-      const transcription = await client.audio.transcriptions.create({
-        file,
-        model: "whisper-large-v3",
-        language: "ru",
-        prompt: previousContext,
-        response_format: "json",
-      });
+      const transcription = await this.withModelFallback(
+        MODELS.transcription.primary,
+        MODELS.transcription.fallback,
+        (model) =>
+          client.audio.transcriptions.create({
+            file,
+            model,
+            language: "ru",
+            prompt: previousContext,
+            response_format: "json",
+          }),
+      );
 
       return {
         text: transcription.text,
@@ -86,12 +104,10 @@ export class GroqService {
   async detectQuestion(transcript: string): Promise<boolean> {
     try {
       return await this.withKeyRotation(async (client) => {
-        const response = await client.chat.completions.create({
-          model: "llama-3.1-8b-instant",
-          messages: [
-            {
-              role: "system",
-              content: `Ты - детектор вопросов на техническом собеседовании.
+        const messages = [
+          {
+            role: "system" as const,
+            content: `Ты - детектор вопросов на техническом собеседовании.
 ВОПРОС (отвечай "YES"):
 - Прямые вопросы: "Что такое React?", "Расскажите о себе"
 - Просьбы объяснить: "Объясните разницу между...", "Опишите процесс..."
@@ -102,15 +118,24 @@ export class GroqService {
 - Приветствия, утверждения, шум, фразы < 3 слов
 
 Отвечай ТОЛЬКО "YES" или "NO".`,
-            },
-            {
-              role: "user",
-              content: `Текст: "${transcript}"`,
-            },
-          ],
-          max_tokens: 5,
-          temperature: 0,
-        });
+          },
+          {
+            role: "user" as const,
+            content: `Текст: "${transcript}"`,
+          },
+        ];
+
+        const response = await this.withModelFallback(
+          MODELS.detection.primary,
+          MODELS.detection.fallback,
+          (model) =>
+            client.chat.completions.create({
+              model,
+              messages,
+              max_tokens: 5,
+              temperature: 0,
+            }),
+        );
 
         const answer = response.choices[0]?.message?.content
           ?.trim()
@@ -135,20 +160,27 @@ export class GroqService {
     resume?: string,
   ): Promise<string> {
     return this.withKeyRotation(async (client) => {
-      const response = await client.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          {
-            role: "system",
-            content: this.getSystemPrompt(mode, jobDescription, resume),
-          },
-          {
-            role: "user",
-            content: this.buildPrompt(transcript, mode, context),
-          },
-        ],
-        stream: false,
-      });
+      const messages = [
+        {
+          role: "system" as const,
+          content: this.getSystemPrompt(mode, jobDescription, resume),
+        },
+        {
+          role: "user" as const,
+          content: this.buildPrompt(transcript, mode, context),
+        },
+      ];
+
+      const response = await this.withModelFallback(
+        MODELS.generation.primary,
+        MODELS.generation.fallback,
+        (model) =>
+          client.chat.completions.create({
+            model,
+            messages,
+            stream: false,
+          }),
+      );
 
       return response.choices[0]?.message?.content ?? "";
     }, "GENERATION_ERROR");
@@ -165,8 +197,6 @@ export class GroqService {
     jobDescription?: string,
     resume?: string,
   ): AsyncGenerator<string, void, unknown> {
-    // Wrap stream initialization in key-rotation retry so that 429/5xx errors
-    // at stream creation are retried across available keys.
     const messages = [
       {
         role: "system" as const,
@@ -179,17 +209,70 @@ export class GroqService {
     ];
 
     const stream = await this.withKeyRotation(async (client) => {
-      return client.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        messages,
-        stream: true,
-      });
+      return this.withModelFallback(
+        MODELS.generation.primary,
+        MODELS.generation.fallback,
+        (model) =>
+          client.chat.completions.create({
+            model,
+            messages,
+            stream: true,
+          }),
+      );
     }, "GENERATION_ERROR");
 
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
         yield content;
+      }
+    }
+  }
+
+  // ─── Fallback модели ─────────────────────────────────────────────────────────
+
+  /**
+   * Пробует выполнить операцию с primary моделью.
+   * При ошибке сервера или недоступности модели повторяет с fallback моделью.
+   */
+  private async withModelFallback<T>(
+    primary: string,
+    fallback: string,
+    fn: (model: string) => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await fn(primary);
+    } catch (error: any) {
+      const status = error?.status ?? error?.response?.status;
+      // Пробуем fallback только при ошибках сервера или недоступности модели
+      const isRetriable =
+        (status >= 500 && status <= 599) ||
+        status === 404 ||
+        status === 403 ||
+        !status;
+
+      if (!isRetriable) throw error;
+
+      const detail =
+        error?.error?.message ??
+        error?.message ??
+        JSON.stringify(error?.error ?? error);
+      console.warn(
+        `[GroqService] Model "${primary}" failed (${status ?? "network"}): ${detail}. Trying fallback "${fallback}"...`,
+      );
+      try {
+        return await fn(fallback);
+      } catch (fallbackError: any) {
+        const fbStatus =
+          fallbackError?.status ?? fallbackError?.response?.status;
+        const fbDetail =
+          fallbackError?.error?.message ??
+          fallbackError?.message ??
+          JSON.stringify(fallbackError?.error ?? fallbackError);
+        console.error(
+          `[GroqService] Fallback model "${fallback}" also failed (${fbStatus ?? "network"}): ${fbDetail}`,
+        );
+        throw fallbackError;
       }
     }
   }
@@ -211,7 +294,6 @@ export class GroqService {
       const keyIndex = this.getNextAvailableKeyIndex();
 
       if (keyIndex === -1) {
-        // Все ключи заблокированы — ждём минимальное время до разблокировки
         const waitMs = this.msUntilNextKeyAvailable();
         console.warn(
           `[GroqService] All keys rate-limited. Waiting ${waitMs}ms...`,
@@ -230,7 +312,6 @@ export class GroqService {
         const wrapped = this.wrapError(error, fallbackCode);
 
         if (this.isRateLimitError(wrapped)) {
-          // Блокируем ключ на 60 секунд и переходим к следующему
           const blockMs = this.extractRetryAfter(error) ?? 60_000;
           this.keyBlockedUntil[keyIndex] = Date.now() + blockMs;
           console.warn(
@@ -243,17 +324,14 @@ export class GroqService {
           console.warn(
             `[GroqService] Key #${keyIndex + 1} server error (${wrapped.status}). Trying next key...`,
           );
-          // Помечаем ключ как ненадёжный на 10 секунд
           this.keyBlockedUntil[keyIndex] = Date.now() + 10_000;
           continue;
         }
 
-        // Не ретраябельная ошибка — бросаем сразу
         throw wrapped;
       }
     }
 
-    // Все ключи не справились
     throw this.wrapError(lastError, fallbackCode);
   }
 
