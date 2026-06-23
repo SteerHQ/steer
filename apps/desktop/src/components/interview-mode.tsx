@@ -23,9 +23,13 @@ export function InterviewMode({
   const [localJob, setLocalJob] = useState(jobDescription);
   const [jobExpanded, setJobExpanded] = useState(false);
 
-  // Keep localJob in sync when the store's jobDescription changes (e.g. mode switch)
+  // Keep localJob in sync when the store's jobDescription changes (e.g. mode switch).
+  // Only update when there's an actual value — avoids wiping local edits during
+  // mode switches where interviewContext temporarily becomes undefined.
   useEffect(() => {
-    setLocalJob(interviewContext?.jobDescription ?? "");
+    if (interviewContext?.jobDescription) {
+      setLocalJob(interviewContext.jobDescription);
+    }
   }, [interviewContext?.jobDescription]);
 
   const modes: Array<{

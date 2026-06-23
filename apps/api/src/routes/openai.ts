@@ -21,12 +21,22 @@ openai.post("/transcribe", async (c) => {
     );
   }
 
+  const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
+
+  // Early guard: reject oversized payloads before buffering into memory
+  const contentLength = Number(c.req.header("content-length") ?? 0);
+  if (contentLength > MAX_AUDIO_SIZE) {
+    throw new ValidationError(
+      `Audio file too large: ${contentLength} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,
+    );
+  }
+
   const arrayBuffer = await c.req.arrayBuffer();
   if (!arrayBuffer || arrayBuffer.byteLength === 0) {
     throw new ValidationError("Missing audio data in request body");
   }
 
-  const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
+  // Defense-in-depth: also check the actual buffered size
   if (arrayBuffer.byteLength > MAX_AUDIO_SIZE) {
     throw new ValidationError(
       `Audio file too large: ${arrayBuffer.byteLength} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,

@@ -114,6 +114,22 @@ export class InterviewService {
         }
       }
 
+      // Flush any remaining data that didn't end with a newline
+      if (sseBuffer.startsWith("data: ")) {
+        const data = sseBuffer.slice(6);
+        if (data !== "[DONE]") {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.chunk) {
+              fullResponse += parsed.chunk;
+              onChunk(fullResponse);
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
+
       logger.info("Response generated successfully", { mode });
       return fullResponse;
     } catch (error) {
