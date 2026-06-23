@@ -23,12 +23,15 @@ openai.post("/transcribe", async (c) => {
 
   const MAX_AUDIO_SIZE = 25 * 1024 * 1024; // 25MB
 
-  // Early guard: reject oversized payloads before buffering into memory
-  const contentLength = Number(c.req.header("content-length") ?? 0);
-  if (contentLength > MAX_AUDIO_SIZE) {
-    throw new ValidationError(
-      `Audio file too large: ${contentLength} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,
-    );
+  // Early validation: check Content-Length header before buffering
+  const contentLength = c.req.header("Content-Length");
+  if (contentLength) {
+    const size = parseInt(contentLength, 10);
+    if (!isNaN(size) && size > MAX_AUDIO_SIZE) {
+      throw new ValidationError(
+        `Audio file too large: ${size} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,
+      );
+    }
   }
 
   const arrayBuffer = await c.req.arrayBuffer();
@@ -36,7 +39,7 @@ openai.post("/transcribe", async (c) => {
     throw new ValidationError("Missing audio data in request body");
   }
 
-  // Defense-in-depth: also check the actual buffered size
+  // Fallback validation: check actual size after buffering (defense-in-depth)
   if (arrayBuffer.byteLength > MAX_AUDIO_SIZE) {
     throw new ValidationError(
       `Audio file too large: ${arrayBuffer.byteLength} bytes (maximum ${MAX_AUDIO_SIZE} bytes)`,

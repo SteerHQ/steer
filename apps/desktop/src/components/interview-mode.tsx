@@ -27,7 +27,7 @@ export function InterviewMode({
   // Only update when there's an actual value — avoids wiping local edits during
   // mode switches where interviewContext temporarily becomes undefined.
   useEffect(() => {
-    if (interviewContext?.jobDescription) {
+    if (interviewContext?.jobDescription !== undefined) {
       setLocalJob(interviewContext.jobDescription);
     }
   }, [interviewContext?.jobDescription]);
