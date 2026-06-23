@@ -114,6 +114,24 @@ export class InterviewService {
         }
       }
 
+      // Process any remaining buffered data after stream completes
+      if (sseBuffer.trim().length > 0) {
+        if (sseBuffer.startsWith("data: ")) {
+          const data = sseBuffer.slice(6);
+          if (data !== "[DONE]") {
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.chunk) {
+                fullResponse += parsed.chunk;
+                onChunk(fullResponse);
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
       logger.info("Response generated successfully", { mode });
       return fullResponse;
     } catch (error) {

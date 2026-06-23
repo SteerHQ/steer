@@ -5,6 +5,7 @@ import { websocket } from "./ws";
 import openaiRoutes from "./routes/openai";
 import groqRoutes from "./routes/groq";
 import { errorHandler } from "./middleware/error-handler";
+import { parseGroqApiKeys } from "./services/groq-service";
 
 // .env is loaded automatically by Bun with --env-file flag in package.json
 console.log("📁 Environment variables loaded from project root");
@@ -38,12 +39,10 @@ app.route("/api/groq", groqRoutes);
 app.onError(errorHandler);
 
 // Verify Groq API keys are loaded
-const groqKeysRaw =
-  process.env.GROQ_API_KEYS?.trim() || process.env.GROQ_API_KEY?.trim() || "";
-const groqKeys = groqKeysRaw
-  .split(",")
-  .map((k) => k.trim())
-  .filter((k) => k.length > 0);
+const groqKeys = parseGroqApiKeys(
+  process.env.GROQ_API_KEYS,
+  process.env.GROQ_API_KEY,
+);
 
 if (groqKeys.length === 0) {
   console.error(
