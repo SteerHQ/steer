@@ -4,6 +4,7 @@ import {
   AssistantMode,
   InterviewContext,
   ResumeProfile,
+  VacancyProfile,
 } from "@steer/types";
 import { ErrorResponse } from "@steer/types";
 
@@ -66,6 +67,58 @@ function generateId(): string {
   return `resume-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// ─── Персист вакансий в localStorage ──────────────────────────────────────────
+
+const VACANCIES_KEY = "vacancy_profiles";
+const ACTIVE_VACANCY_KEY = "active_vacancy_id";
+
+function loadVacancies(): VacancyProfile[] {
+  try {
+    const raw = localStorage.getItem(VACANCIES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (v): v is VacancyProfile =>
+        v &&
+        typeof v.id === "string" &&
+        typeof v.name === "string" &&
+        typeof v.content === "string",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function loadActiveVacancyId(): string | null {
+  try {
+    return localStorage.getItem(ACTIVE_VACANCY_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function persistVacancies(vacancies: VacancyProfile[]): void {
+  try {
+    localStorage.setItem(VACANCIES_KEY, JSON.stringify(vacancies));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function persistActiveVacancyId(id: string | null): void {
+  try {
+    if (id) localStorage.setItem(ACTIVE_VACANCY_KEY, id);
+    else localStorage.removeItem(ACTIVE_VACANCY_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function generateVacancyId(): string {
+  return `vacancy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export interface AppStore extends AppState {
   // Chat messages
   messages: ChatMessage[];
@@ -104,6 +157,17 @@ export interface AppStore extends AppState {
   setActiveResume: (id: string | null) => void;
   getActiveResume: () => ResumeProfile | undefined;
   getActiveResumeContent: () => string | undefined;
+
+  // Vacancy (job description) management
+  addVacancy: (name: string, content: string) => string;
+  updateVacancy: (
+    id: string,
+    patch: { name?: string; content?: string },
+  ) => void;
+  deleteVacancy: (id: string) => void;
+  setActiveVacancy: (id: string | null) => void;
+  getActiveVacancy: () => VacancyProfile | undefined;
+  getActiveVacancyContent: () => string | undefined;
 }
 
 const initialState: AppState = {
@@ -119,6 +183,8 @@ const initialState: AppState = {
   interviewContext: null,
   resumes: loadResumes(),
   activeResumeId: loadActiveResumeId(),
+  vacancies: loadVacancies(),
+  activeVacancyId: loadActiveVacancyId(),
 };
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -336,10 +402,13 @@ export const useAppStore = create<AppStore>((set) => ({
       };
     }),
 
-  // Get job description
+  // Get job description (берётся из активной сохранённой вакансии)
   getJobDescription: (): string | undefined => {
     const state = useAppStore.getState() as AppStore;
-    return state.interviewContext?.jobDescription;
+    if (!state.activeVacancyId) return undefined;
+    const vacancy = state.vacancies.find((v) => v.id === state.activeVacancyId);
+    const content = vacancy?.content?.trim();
+    return content ? content : undefined;
   },
 
   // ─── Управление резюме ──────────────────────────────────────────────────────
@@ -418,6 +487,85 @@ export const useAppStore = create<AppStore>((set) => ({
     if (!state.activeResumeId) return undefined;
     const resume = state.resumes.find((r) => r.id === state.activeResumeId);
     const content = resume?.content?.trim();
+    return content ? content : undefined;
+  },
+
+  // ─── Управление вакансиями ──────────────────────────────────────────────────
+
+  // Создать новую вакансию, сделать её активной и вернуть её id
+  addVacancy: (name: string, content: string): string => {
+    const id = generateVacancyId();
+    set((state) => {
+      const vacancy: VacancyProfile = {
+        id,
+        name: name.trim() || "Без названия",
+        content,
+        updatedAt: Date.now(),
+      };
+      const vacancies = [...state.vacancies, vacancy];
+      persistVacancies(vacancies);
+      persistActiveVacancyId(id);
+      return { vacancies, activeVacancyId: id };
+    });
+    return id;
+  },
+
+  // Обновить название и/или содержимое вакансии
+  updateVacancy: (id: string, patch: { name?: string; content?: string }) =>
+    set((state) => {
+      const vacancies = state.vacancies.map((v) =>
+        v.id === id
+          ? {
+              ...v,
+              ...(patch.name !== undefined
+                ? { name: patch.name.trim() || "Без названия" }
+                : {}),
+              ...(patch.content !== undefined
+                ? { content: patch.content }
+                : {}),
+              updatedAt: Date.now(),
+            }
+          : v,
+      );
+      persistVacancies(vacancies);
+      return { vacancies };
+    }),
+
+  // Удалить вакансию; если она была активной — сбросить активную
+  deleteVacancy: (id: string) =>
+    set((state) => {
+      const vacancies = state.vacancies.filter((v) => v.id !== id);
+      const activeVacancyId =
+        state.activeVacancyId === id ? null : state.activeVacancyId;
+      persistVacancies(vacancies);
+      if (activeVacancyId !== state.activeVacancyId) {
+        persistActiveVacancyId(activeVacancyId);
+      }
+      return { vacancies, activeVacancyId };
+    }),
+
+  // Выбрать активную вакансию (или сбросить выбор)
+  setActiveVacancy: (id: string | null) =>
+    set((state) => {
+      const exists = id === null || state.vacancies.some((v) => v.id === id);
+      const activeVacancyId = exists ? id : null;
+      persistActiveVacancyId(activeVacancyId);
+      return { activeVacancyId };
+    }),
+
+  // Получить активный профиль вакансии
+  getActiveVacancy: (): VacancyProfile | undefined => {
+    const state = useAppStore.getState() as AppStore;
+    if (!state.activeVacancyId) return undefined;
+    return state.vacancies.find((v) => v.id === state.activeVacancyId);
+  },
+
+  // Получить текст активной вакансии для подстановки в промпт
+  getActiveVacancyContent: (): string | undefined => {
+    const state = useAppStore.getState() as AppStore;
+    if (!state.activeVacancyId) return undefined;
+    const vacancy = state.vacancies.find((v) => v.id === state.activeVacancyId);
+    const content = vacancy?.content?.trim();
     return content ? content : undefined;
   },
 }));

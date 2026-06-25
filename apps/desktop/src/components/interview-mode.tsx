@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { AssistantMode } from "@steer/types";
-import { useAppStore } from "../store/app-store";
-import { ResumeManager } from "./resume-manager";
+import { ProfilePanel } from "./profile-panel";
 import "./interview-mode.css";
 
 interface InterviewModeProps {
@@ -18,19 +17,6 @@ export function InterviewMode({
   historyCount,
 }: InterviewModeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const { interviewContext, setJobDescription } = useAppStore();
-  const jobDescription = interviewContext?.jobDescription ?? "";
-  const [localJob, setLocalJob] = useState(jobDescription);
-  const [jobExpanded, setJobExpanded] = useState(false);
-
-  // Keep localJob in sync when the store's jobDescription changes (e.g. mode switch).
-  // Only update when there's an actual value — avoids wiping local edits during
-  // mode switches where interviewContext temporarily becomes undefined.
-  useEffect(() => {
-    if (interviewContext?.jobDescription !== undefined) {
-      setLocalJob(interviewContext.jobDescription);
-    }
-  }, [interviewContext?.jobDescription]);
 
   const modes: Array<{
     value: AssistantMode;
@@ -113,44 +99,8 @@ export function InterviewMode({
         </div>
       )}
 
-      {currentMode === "interview" && (
-        <div className="job-description-section">
-          <button
-            className="job-toggle"
-            onClick={() => setJobExpanded(!jobExpanded)}
-          >
-            <span>📋 Вакансия</span>
-            {localJob && <span className="job-indicator">●</span>}
-            <span className="mode-arrow">{jobExpanded ? "▲" : "▼"}</span>
-          </button>
-          {jobExpanded && (
-            <div className="job-textarea-wrap">
-              <textarea
-                className="job-textarea"
-                placeholder="Вставьте текст вакансии — ассистент будет учитывать требования при ответах..."
-                value={localJob}
-                onChange={(e) => setLocalJob(e.target.value)}
-                onBlur={() => setJobDescription(localJob)}
-                rows={6}
-              />
-              {localJob && (
-                <button
-                  className="job-clear-btn"
-                  onClick={() => {
-                    setLocalJob("");
-                    setJobDescription("");
-                  }}
-                >
-                  Очистить
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {(currentMode === "interview" || currentMode === "general") && (
-        <ResumeManager />
+        <ProfilePanel />
       )}
     </div>
   );

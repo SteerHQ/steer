@@ -21,6 +21,25 @@ export interface AppState {
   resumes: ResumeProfile[];
   /** ID активного резюме, которое подставляется в промпт */
   activeResumeId: string | null;
+  /** Сохранённые вакансии пользователя (несколько профилей) */
+  vacancies: VacancyProfile[];
+  /** ID активной вакансии, которая подставляется в промпт */
+  activeVacancyId: string | null;
+}
+
+/**
+ * Профиль вакансии. Пользователь может сохранить несколько вакансий
+ * и выбирать активную, требования которой учитываются при ответах.
+ */
+export interface VacancyProfile {
+  /** Уникальный идентификатор */
+  id: string;
+  /** Название вакансии, напр. "Senior Backend в Acme" */
+  name: string;
+  /** Текст вакансии, который подставляется в системный промпт */
+  content: string;
+  /** Время последнего изменения (ms) */
+  updatedAt: number;
 }
 
 /**
