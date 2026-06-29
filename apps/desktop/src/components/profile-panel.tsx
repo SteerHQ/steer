@@ -1,13 +1,17 @@
-import { useState } from "react";
 import { useAppStore } from "../store/app-store";
 import { DocumentLibrary } from "./document-library";
 import "./profile-panel.css";
 
+interface ProfilePanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 /**
- * Единая панель «Профиль кандидата»: библиотеки сохранённых вакансий и резюме.
- * Активная вакансия и активное резюме подставляются в системный промпт.
+ * Floating drawer panel for vacancy and resume management.
+ * Anchored to the left side, does not affect the main dialog flow.
  */
-export function ProfilePanel() {
+export function ProfilePanel({ isOpen, onClose }: ProfilePanelProps) {
   const {
     vacancies,
     activeVacancyId,
@@ -23,37 +27,21 @@ export function ProfilePanel() {
     setActiveResume,
   } = useAppStore();
 
-  const [expanded, setExpanded] = useState(false);
-
   const activeVacancy = vacancies.find((v) => v.id === activeVacancyId);
   const activeResume = resumes.find((r) => r.id === activeResumeId);
 
   return (
-    <div className="profile-panel">
-      <button
-        className="profile-toggle"
-        onClick={() => setExpanded(!expanded)}
-        title="Вакансии и резюме"
-      >
-        <span className="profile-toggle-icon">📁</span>
-        <span className="profile-toggle-label">Профиль кандидата</span>
-        <span className="profile-toggle-summary">
-          <span
-            className={`profile-chip${activeVacancy ? " profile-chip-on" : ""}`}
-          >
-            📋 {activeVacancy ? activeVacancy.name : "вакансия не выбрана"}
-          </span>
-          <span
-            className={`profile-chip${activeResume ? " profile-chip-on" : ""}`}
-          >
-            📄 {activeResume ? activeResume.name : "резюме не выбрано"}
-          </span>
-        </span>
-        <span className="profile-toggle-arrow">{expanded ? "▲" : "▼"}</span>
-      </button>
+    <>
+      {isOpen && <div className="profile-drawer-overlay" onClick={onClose} />}
+      <div className={`profile-drawer ${isOpen ? "open" : ""}`}>
+        <div className="profile-drawer-header">
+          <span className="profile-drawer-title">📁 Профиль кандидата</span>
+          <button className="profile-drawer-close" onClick={onClose} title="Закрыть">
+            ✕
+          </button>
+        </div>
 
-      {expanded && (
-        <div className="profile-body">
+        <div className="profile-drawer-body">
           <DocumentLibrary
             icon="📋"
             title="Вакансии"
@@ -86,7 +74,18 @@ export function ProfilePanel() {
             onSelect={setActiveResume}
           />
         </div>
-      )}
-    </div>
+
+        {activeVacancy && (
+          <div className="profile-drawer-active-hint">
+            ✓ Активна: <strong>{activeVacancy.name}</strong>
+          </div>
+        )}
+        {activeResume && (
+          <div className="profile-drawer-active-hint">
+            ✓ Активно: <strong>{activeResume.name}</strong>
+          </div>
+        )}
+      </div>
+    </>
   );
 }

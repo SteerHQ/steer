@@ -6,6 +6,7 @@ import { ErrorDisplay } from "./components/error-display";
 import { WindowControls } from "./components/window-controls";
 import { Chat } from "./components/chat";
 import { InterviewMode } from "./components/interview-mode";
+import { ProfilePanel } from "./components/profile-panel";
 import { VoiceSensitivity } from "./components/voice-sensitivity";
 import { AppActions } from "./components/app-actions";
 import { useAppInitialization } from "./hooks/use-app-initialization";
@@ -29,6 +30,8 @@ function App() {
     messages,
     mode,
     interviewContext,
+    profileDrawerOpen,
+    setProfileDrawerOpen,
     setError,
     setMode,
     clearInterviewContext,
@@ -135,7 +138,13 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <>
+      <ProfilePanel
+        isOpen={profileDrawerOpen}
+        onClose={() => setProfileDrawerOpen(false)}
+      />
+
+      <div className="app-container">
       <WindowControls
         stealthEnabled={stealthEnabled}
         onToggleStealth={toggleStealth}
@@ -201,7 +210,8 @@ function App() {
         onOpenSettings={() => setShowSettings(true)}
         sampleRate={deviceSampleRateRef.current}
       />
-    </div>
+      </div>
+    </>
   );
 }
 

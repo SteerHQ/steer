@@ -120,6 +120,10 @@ function generateVacancyId(): string {
 }
 
 export interface AppStore extends AppState {
+  // Profile drawer (floating panel for vacancies/resumes)
+  profileDrawerOpen: boolean;
+  setProfileDrawerOpen: (open: boolean) => void;
+
   // Chat messages
   messages: ChatMessage[];
 
@@ -190,6 +194,8 @@ const initialState: AppState = {
 export const useAppStore = create<AppStore>((set) => ({
   ...initialState,
   messages: [],
+  profileDrawerOpen: false,
+  setProfileDrawerOpen: (open: boolean) => set({ profileDrawerOpen: open }),
 
   // Start audio capture
   startCapture: () =>

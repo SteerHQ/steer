@@ -1,6 +1,14 @@
 .interview-mode {
-  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 12px;
+}
+
+.mode-selector {
+  position: relative;
+  flex: 1;
+  min-width: 0;
 }
 
 .mode-toggle {
@@ -15,7 +23,8 @@
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 
 .mode-toggle:hover {
@@ -31,6 +40,10 @@
   flex: 1;
   text-align: left;
   font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mode-arrow {
@@ -40,10 +53,9 @@
 
 .mode-dropdown {
   position: absolute;
-  top: 100%;
+  top: calc(100% + 4px);
   left: 0;
-  right: 0;
-  margin-top: 4px;
+  width: 100%;
   background: rgba(20, 20, 30, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 8px;
