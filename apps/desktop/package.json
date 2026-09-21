@@ -15,7 +15,7 @@
     "build:optimized": "bun run build && bun run tauri:build && bun run check-size"
   },
   "dependencies": {
-    "@ricky0123/vad-web": "^0.0.30",
+    "@ricky0123/vad-web": "^0.0.31",
     "@steer/config": "workspace:*",
     "@steer/types": "workspace:*",
     "@tauri-apps/api": "^2.11.1",
